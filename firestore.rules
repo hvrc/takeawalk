@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // takeawalk is intentionally public: anyone can read every trip and
+    // anyone can write to one. The rules below only keep the data shaped
+    // sanely so a stray client can't fill the database with junk.
+
+    function isString(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    match /trips/{tripId} {
+      allow read: if true;
+      allow create: if isString(request.resource.data.name, 80)
+                    && isString(request.resource.data.code, 12)
+                    && request.resource.data.status in ['active', 'published'];
+      allow update: if isString(request.resource.data.name, 80)
+                    && request.resource.data.status in ['active', 'published'];
+      allow delete: if false;
+
+      match /segments/{segmentId} {
+        allow read: if true;
+        allow create, update: if request.resource.data.points is list
+                              && request.resource.data.points.size() <= 2000
+                              && isString(request.resource.data.memberId, 64);
+        allow delete: if false;
+      }
+
+      match /polaroids/{polaroidId} {
+        allow read: if true;
+        allow create: if isString(request.resource.data.caption, 120)
+                      && isString(request.resource.data.description, 2000)
+                      && isString(request.resource.data.memberId, 64)
+                      && request.resource.data.lat is number
+                      && request.resource.data.lng is number;
+        allow update: if isString(request.resource.data.caption, 120)
+                      && isString(request.resource.data.description, 2000);
+        allow delete: if false;
+      }
+    }
+  }
+}
