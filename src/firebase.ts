@@ -61,9 +61,12 @@ async function init(): Promise<Services> {
   }
 
   const app = initializeApp(config)
-  const db = initializeFirestore(app, {
+  const settings = {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  })
+  }
+  // Named Firestore database (e.g. a shared project with one database per app).
+  const databaseId = USE_EMULATORS ? undefined : env.VITE_FIREBASE_DATABASE_ID
+  const db = databaseId ? initializeFirestore(app, settings, databaseId) : initializeFirestore(app, settings)
   const storage = getStorage(app)
 
   if (USE_EMULATORS) {

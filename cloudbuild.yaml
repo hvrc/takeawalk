@@ -1,0 +1,27 @@
+# Push to `release` -> build the Dockerfile -> deploy Cloud Run `takeawalk` (walk.hvrc.place).
+# Run by the Cloud Build trigger `takeawalk-release-deploy` in hvrc-web.
+steps:
+  - id: Build
+    name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', '$_IMAGE:$COMMIT_SHA', '.']
+  - id: Push
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '$_IMAGE:$COMMIT_SHA']
+  - id: Deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - takeawalk
+      - --image=$_IMAGE:$COMMIT_SHA
+      - --region=us-east1
+      - --allow-unauthenticated
+      - --port=8080
+      - --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
+      - --quiet
+substitutions:
+  _IMAGE: us-east1-docker.pkg.dev/hvrc-web/cloud-run-source-deploy/takeawalk/takeawalk
+images: ['$_IMAGE:$COMMIT_SHA']
+options:
+  logging: CLOUD_LOGGING_ONLY
