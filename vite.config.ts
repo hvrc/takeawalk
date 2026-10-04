@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Updates are applied by src/lib/appUpdate.ts at a safe moment, not mid-photo.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['icons/*.png', 'icons/*.svg'],
       manifest: {
         name: 'take a walk',

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './styles.css'
 import App from './App.tsx'
+import { startAppUpdates } from './lib/appUpdate'
 
 // Android keyboards (Gboard on Pixel) don't close when you press Enter/Done in
 // a single-line field unless the field loses focus. Blur it after the press
@@ -13,6 +14,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || e.isComposing || !(t instanceof HTMLInputElement)) return
   setTimeout(() => t.blur(), 0)
 })
+
+startAppUpdates()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
