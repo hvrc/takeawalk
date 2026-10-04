@@ -112,7 +112,7 @@ test('a photo survives a failed upload, leaving the walk and a reload', async ({
   // Cloud Storage unreachable.
   await page.route('**/127.0.0.1:9199/**', (r) => r.abort())
   await takePhoto(page, 'no signal')
-  await expect(page.locator('.pin-polaroid.pending')).toHaveCount(1)
+  await expect(page.locator('.pin-photo.pending')).toHaveCount(1)
   await expect.poll(() => queued(page)).toBe(1)
 
   // Leave the walk and reload the whole app: the photo is still queued on the phone.
@@ -141,7 +141,7 @@ test('a retry after the file uploaded but the record failed writes exactly one r
   // Uploads work, but the transaction that writes the record fails.
   await page.route('**/documents:commit*', (r) => r.abort())
   await takePhoto(page, 'halfway there')
-  await expect(page.locator('.pin-polaroid.pending')).toHaveCount(1)
+  await expect(page.locator('.pin-photo.pending')).toHaveCount(1)
   // The file made it to Storage...
   await expect
     .poll(async () => (await fetch(`${STORAGE}?prefix=${encodeURIComponent(`trips/${tripId}/polaroids/`)}`, { headers: { Authorization: 'Bearer owner' } }).then((r) => r.json())).items?.length ?? 0, { timeout: 20_000 })
@@ -159,6 +159,6 @@ test('a retry after the file uploaded but the record failed writes exactly one r
   await page.waitForTimeout(2000)
   expect(await polaroidsInFirestore(tripId)).toHaveLength(1)
   expect(await tripCount(tripId)).toBe(1)
-  await expect(page.locator('.pin-polaroid')).toHaveCount(1)
-  await expect(page.locator('.pin-polaroid.pending')).toHaveCount(0)
+  await expect(page.locator('.pin-photo')).toHaveCount(1)
+  await expect(page.locator('.pin-photo.pending')).toHaveCount(0)
 })

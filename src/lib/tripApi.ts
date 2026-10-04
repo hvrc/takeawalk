@@ -3,6 +3,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   increment,
   limit,
@@ -104,6 +105,30 @@ export async function joinTrip(db: Firestore, tripId: string, me: Me): Promise<v
 
 export async function renameMember(db: Firestore, tripId: string, me: Me): Promise<void> {
   await updateDoc(doc(db, 'trips', tripId), { [`members.${me.id}.name`]: me.name })
+}
+
+export interface KnownWalker {
+  id: string
+  name: string
+  color: string
+  lastSeenAt: number
+}
+
+/**
+ * People you might be, for the "been here before?" picker: the walkers on one
+ * walk (when you arrive on a walk link), or on the most recent walks.
+ */
+export async function listKnownWalkers(db: Firestore, tripId?: string): Promise<KnownWalker[]> {
+  const trips = tripId
+    ? await getDoc(doc(db, 'trips', tripId)).then((s) => (s.exists() ? [toTrip(s.id, s.data())] : []))
+    : await getDocs(query(tripsCol(db), orderBy('updatedAt', 'desc'), limit(8))).then((s) => s.docs.map((d) => toTrip(d.id, d.data())))
+  const byId = new Map<string, KnownWalker>()
+  for (const t of trips)
+    for (const [id, m] of Object.entries(t.members)) {
+      const prev = byId.get(id)
+      if (!prev || m.lastSeenAt > prev.lastSeenAt) byId.set(id, { id, name: m.name, color: m.color, lastSeenAt: m.lastSeenAt ?? 0 })
+    }
+  return [...byId.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt).slice(0, 12)
 }
 
 export function subscribeTrips(db: Firestore, cb: (trips: Trip[]) => void, onError?: (e: Error) => void): Unsubscribe {

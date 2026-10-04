@@ -30,6 +30,17 @@ export function getDeviceId(): string {
   return id
 }
 
+/** Take back an identity this person used before (another browser, or wiped storage). */
+export function adoptIdentity(id: string, name: string) {
+  localStorage.setItem(DEVICE_KEY, id)
+  localStorage.setItem(NAME_KEY, name.trim())
+}
+
+/** Ask the browser to keep our storage (identity, queued photos) instead of clearing it. */
+export function requestPersistentStorage() {
+  void navigator.storage?.persist?.().catch(() => undefined)
+}
+
 export function getName(): string {
   return localStorage.getItem(NAME_KEY) ?? ''
 }

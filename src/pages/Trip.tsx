@@ -22,7 +22,7 @@ import type { GeoPoint, Polaroid as PolaroidT } from '../lib/types'
 import MapView from '../components/MapView'
 import PolaroidViewer from '../components/PolaroidViewer'
 import CaptureSheet from '../components/CaptureSheet'
-import { IconBack, IconCamera, IconFlag, IconLocate, IconPause, IconPlay, IconShare } from '../components/icons'
+import { IconBack, IconCamera, IconFlag, IconLocate, IconPause, IconPhoto, IconPin, IconPlay, IconShare } from '../components/icons'
 
 const SESSION_KEY = 'taw.session'
 const RESUME_WINDOW_MS = 30 * 60_000
@@ -52,6 +52,23 @@ export default function Trip({ name }: { name: string }) {
   const [myFix, setMyFix] = useState<GeoPoint | null>(null)
   const [follow, setFollow] = useState(false)
   const [fitKey, setFitKey] = useState(0)
+  // Photos as small pins (default, keeps the route visible) or as polaroids. Remembered per phone.
+  const [showPolaroids, setShowPolaroids] = useState(() => {
+    try {
+      return localStorage.getItem('taw.mapPolaroids') === '1'
+    } catch {
+      return false
+    }
+  })
+  const togglePolaroids = () =>
+    setShowPolaroids((v) => {
+      try {
+        localStorage.setItem('taw.mapPolaroids', v ? '0' : '1')
+      } catch {
+        /* ignore */
+      }
+      return !v
+    })
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [viewerId, setViewerId] = useState<string | null>(null)
@@ -324,6 +341,7 @@ export default function Trip({ name }: { name: string }) {
         onUserMove={() => setFollow(false)}
         onPolaroidClick={setViewerId}
         fitKey={fitKey}
+        showPolaroids={showPolaroids}
       />
 
       <div className="topbar">
@@ -357,6 +375,15 @@ export default function Trip({ name }: { name: string }) {
           ))}
         </div>
       ) : null}
+
+      <button
+        className="btn-icon map-toggle"
+        onClick={togglePolaroids}
+        aria-label={showPolaroids ? 'Show photos as pins' : 'Show photos as polaroids'}
+        title={showPolaroids ? 'Show photos as pins' : 'Show photos as polaroids'}
+      >
+        {showPolaroids ? <IconPin /> : <IconPhoto />}
+      </button>
 
       <button
         className="btn-icon recenter"

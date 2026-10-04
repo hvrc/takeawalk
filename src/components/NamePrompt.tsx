@@ -1,7 +1,21 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import type { KnownWalker } from '../lib/tripApi'
 
-export default function NamePrompt({ onDone, initial = '' }: { onDone: (name: string) => void; initial?: string }) {
+interface Props {
+  onDone: (name: string) => void
+  /** People this phone might have been before; tapping one takes that identity back. */
+  loadKnown?: () => Promise<KnownWalker[]>
+  onAdopt?: (w: KnownWalker) => void
+  initial?: string
+}
+
+export default function NamePrompt({ onDone, loadKnown, onAdopt, initial = '' }: Props) {
   const [value, setValue] = useState(initial)
+  const [known, setKnown] = useState<KnownWalker[]>([])
+  useEffect(() => {
+    loadKnown?.().then(setKnown, () => undefined)
+  }, [loadKnown])
+
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (value.trim()) onDone(value.trim())
@@ -16,7 +30,6 @@ export default function NamePrompt({ onDone, initial = '' }: { onDone: (name: st
         <label className="muted tiny center">What should we call you?</label>
         <input
           className="field center"
-          autoFocus
           maxLength={24}
           placeholder="your name"
           value={value}
@@ -28,6 +41,19 @@ export default function NamePrompt({ onDone, initial = '' }: { onDone: (name: st
           Get ready
         </button>
       </form>
+      {known.length > 0 && onAdopt ? (
+        <div className="known">
+          <div className="or">been here before? tap your name</div>
+          <div className="known-list">
+            {known.map((w) => (
+              <button key={w.id} className="chip" onClick={() => onAdopt(w)}>
+                <span className="dot" style={{ background: w.color }} />
+                {w.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

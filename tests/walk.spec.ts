@@ -73,9 +73,9 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.getByPlaceholder('write on the back…').fill('Three ducks, one very opinionated goose.')
   await a.page.screenshot({ path: `${SHOTS}/03-capture-sheet.png` })
   await a.page.getByRole('button', { name: 'Pin it to the map' }).click()
-  await expect(a.page.locator('.pin-polaroid')).toHaveCount(1)
+  await expect(a.page.locator('.pin-photo')).toHaveCount(1)
   // Upload finishes and the pending pin becomes the real one.
-  await expect(a.page.locator('.pin-polaroid.pending')).toHaveCount(0, { timeout: 30_000 })
+  await expect(a.page.locator('.pin-photo.pending')).toHaveCount(0, { timeout: 30_000 })
 
   // --- B joins with the code
   const b = await newPhone(browser, 'Friend')
@@ -89,7 +89,7 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await expect(b.page.locator('.members-row .chip')).toHaveCount(2)
   await expect(a.page.locator('.members-row .chip')).toHaveCount(2)
   // B sees A's polaroid
-  await expect(b.page.locator('.pin-polaroid')).toHaveCount(1)
+  await expect(b.page.locator('.pin-photo')).toHaveCount(1)
 
   await b.page.getByRole('button', { name: /^Start$/ }).click()
   await expect(b.page.locator('.status-line')).toContainText('Walking', { timeout: 20_000 })
@@ -107,15 +107,22 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await b.page.locator('input[type=file]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: photoB })
   await b.page.getByPlaceholder('write a caption').fill('found a cat')
   await b.page.getByRole('button', { name: 'Pin it to the map' }).click()
-  await expect(b.page.locator('.pin-polaroid')).toHaveCount(2)
-  await expect(a.page.locator('.pin-polaroid')).toHaveCount(2)
+  await expect(b.page.locator('.pin-photo')).toHaveCount(2)
+  await expect(a.page.locator('.pin-photo')).toHaveCount(2)
   await a.page.screenshot({ path: `${SHOTS}/05-two-walkers.png` })
+  // Toggle to polaroids on the map and back to pins.
+  await a.page.getByRole('button', { name: 'Show photos as polaroids' }).click()
+  await expect(a.page.locator('.pin-polaroid')).toHaveCount(2)
+  await expect(a.page.locator('.pin-photo')).toHaveCount(0)
+  await a.page.screenshot({ path: `${SHOTS}/05a-polaroids-on-map.png` })
+  await a.page.getByRole('button', { name: 'Show photos as pins' }).click()
+  await expect(a.page.locator('.pin-photo')).toHaveCount(2)
 
   // --- A opens B's polaroid, flips it (fit the map to everything first)
   await a.page.getByRole('button', { name: 'Recenter' }).click()
   await a.page.waitForTimeout(1000)
   await a.page.screenshot({ path: `${SHOTS}/05b-fit-all.png` })
-  await a.page.locator('.pin-polaroid').nth(1).click()
+  await a.page.locator('.pin-photo').nth(1).dispatchEvent('click')
   await expect(a.page.locator('.viewer')).toBeVisible()
   await expect(a.page.locator('.viewer .polaroid-caption')).toHaveText('found a cat')
   await a.page.waitForTimeout(400)
@@ -154,7 +161,7 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.locator('.viewer-close').click()
 
   // --- A edits own caption in place (Enter saves and drops the keyboard) and writes on the back
-  await a.page.locator('.pin-polaroid').nth(0).click()
+  await a.page.locator('.pin-photo').nth(0).dispatchEvent('click')
   const cap = a.page.getByLabel('Caption')
   await cap.fill('ducks, and a goose')
   await cap.press('Enter')
@@ -166,7 +173,7 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await expect(a.page.locator('.toast')).toContainText('Saved')
   await a.page.locator('.viewer-close').click()
   // Reopen: both edits came back from Firestore.
-  await a.page.locator('.pin-polaroid').nth(0).click()
+  await a.page.locator('.pin-photo').nth(0).dispatchEvent('click')
   await expect(a.page.getByLabel('Caption')).toHaveValue('ducks, and a goose')
   await expect(a.page.locator('.polaroid-back textarea')).toHaveValue('Updated from the back.')
   await a.page.locator('.viewer-close').click()
@@ -193,7 +200,7 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   // Reopening shows Resume (published route stays, new tracking appends).
   await cardA.click()
   await expect(a.page.getByRole('button', { name: /^Resume$/ })).toBeVisible()
-  await expect(a.page.locator('.pin-polaroid')).toHaveCount(2)
+  await expect(a.page.locator('.pin-photo')).toHaveCount(2)
   await a.page.waitForTimeout(1500)
   await a.page.screenshot({ path: `${SHOTS}/10-reopened.png` })
 

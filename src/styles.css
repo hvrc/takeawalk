@@ -127,6 +127,9 @@ textarea.field { resize: none; line-height: 1.4; }
   letter-spacing: 0.14em; text-transform: uppercase; text-shadow: none; line-height: 1.4;
 }
 .splash form { width: 100%; max-width: 340px; display: grid; gap: 12px; }
+.known { width: 100%; max-width: 340px; display: grid; gap: 12px; margin-top: 6px; }
+.known-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.known-list .chip { padding: 6px 12px 6px 8px; font-size: 14px; }
 .splash label { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; font-stretch: 75%; }
 .error-box {
   max-width: 420px; padding: 16px; border-radius: 4px; background: #f6dccf; color: var(--maroon); border: var(--rule);
@@ -231,6 +234,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .members-row .chip .walking { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: pulse 1.4s infinite; }
 
 .recenter { position: absolute; right: 10px; bottom: calc(166px + var(--sab)); z-index: 5; }
+.map-toggle { position: absolute; right: 10px; bottom: calc(218px + var(--sab)); z-index: 5; }
 
 .bottombar {
   position: absolute; left: 10px; right: 10px; bottom: calc(10px + var(--sab)); z-index: 6;
@@ -263,6 +267,13 @@ textarea.field { resize: none; line-height: 1.4; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 /* ---------- markers ---------- */
+/* photo pin: a small ink-outlined teardrop in the photographer's colour */
+.pin-photo { width: 34px; height: 40px; display: flex; align-items: flex-end; justify-content: center; cursor: pointer; }
+.pin-photo svg { width: 22px; height: 30px; overflow: visible; transition: transform 0.12s; transform-origin: 50% 100%; }
+.pin-photo path { fill: var(--c, var(--accent)); stroke: var(--ink); stroke-width: 1.6; }
+.pin-photo circle { fill: var(--card); stroke: var(--ink); stroke-width: 1.2; }
+.pin-photo:active svg { transform: scale(1.15); }
+.pin-photo.pending path { fill-opacity: 0.45; stroke-dasharray: 3 2; }
 .head-marker { position: relative; width: 22px; height: 22px; }
 .head-marker .ring { position: absolute; inset: 0; border-radius: 50%; background: var(--c); opacity: 0.25; }
 .head-marker.live .ring { animation: ping 1.6s infinite; }

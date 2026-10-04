@@ -22,9 +22,11 @@ interface Props {
   onPolaroidClick: (id: string) => void
   /** Increment to request a fit-to-everything. */
   fitKey: number
+  /** Show photos as polaroids on the map; otherwise as small pins that keep the route clear. */
+  showPolaroids: boolean
 }
 
-export default function MapView({ segments, members, polaroids, meId, myFix, tracking, follow, onUserMove, onPolaroidClick, fitKey }: Props) {
+export default function MapView({ segments, members, polaroids, meId, myFix, tracking, follow, onUserMove, onPolaroidClick, fitKey, showPolaroids }: Props) {
   const el = useRef<HTMLDivElement>(null)
   // Covers the blank map until the style and first tiles have rendered.
   const [ready, setReady] = useState(false)
@@ -152,7 +154,13 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     }
   }, [members, meId, myFix, tracking])
 
-  // Polaroid pins
+  // Switching between pins and polaroids rebuilds the markers.
+  useEffect(() => {
+    for (const marker of pinMarkers.current.values()) marker.remove()
+    pinMarkers.current.clear()
+  }, [showPolaroids])
+
+  // Photo markers: small pins by default, or little polaroids.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -160,6 +168,19 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     polaroids.forEach((p, i) => {
       wanted.add(p.id)
       let marker = pinMarkers.current.get(p.id)
+      if (!marker && !showPolaroids) {
+        const node = document.createElement('div')
+        node.className = 'pin-photo'
+        node.setAttribute('role', 'button')
+        node.setAttribute('aria-label', p.caption ? `Photo: ${p.caption}` : 'Photo')
+        node.innerHTML = `<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M12 30.5C7 23.6 2 18.3 2 12a10 10 0 0120 0c0 6.3-5 11.6-10 18.5z"/><circle cx="12" cy="12" r="3.6"/></svg>`
+        node.addEventListener('click', (e) => {
+          e.stopPropagation()
+          clickRef.current(p.id)
+        })
+        marker = new Marker({ element: node, anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(map)
+        pinMarkers.current.set(p.id, marker)
+      }
       if (!marker) {
         const node = document.createElement('div')
         node.className = 'pin-polaroid'
@@ -180,9 +201,10 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
       node.style.zIndex = String(i + 1)
       node.style.setProperty('--c', p.color)
       node.classList.toggle('pending', !!p.pending)
-      const img = node.querySelector('img') as HTMLImageElement
-      if (img.getAttribute('src') !== p.imageUrl) img.src = p.imageUrl
-      node.querySelector('.polaroid-caption')!.textContent = p.caption.length > 14 ? p.caption.slice(0, 13) + '…' : p.caption
+      const img = node.querySelector('img') as HTMLImageElement | null
+      if (img && img.getAttribute('src') !== p.imageUrl) img.src = p.imageUrl
+      const cap = node.querySelector('.polaroid-caption')
+      if (cap) cap.textContent = p.caption.length > 14 ? p.caption.slice(0, 13) + '…' : p.caption
     })
     for (const [id, marker] of pinMarkers.current) {
       if (!wanted.has(id)) {
@@ -190,7 +212,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
         pinMarkers.current.delete(id)
       }
     }
-  }, [polaroids])
+  }, [polaroids, showPolaroids])
 
   // Follow my position while tracking
   useEffect(() => {
