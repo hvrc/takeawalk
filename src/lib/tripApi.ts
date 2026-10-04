@@ -133,7 +133,8 @@ export async function listKnownWalkers(db: Firestore, tripId?: string): Promise<
 
 export function subscribeTrips(db: Firestore, cb: (trips: Trip[]) => void, onError?: (e: Error) => void): Unsubscribe {
   const q = query(tripsCol(db), orderBy('updatedAt', 'desc'), limit(100))
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => toTrip(d.id, d.data()))), onError)
+  // Walks flagged `hidden` (set by hand in Firestore) stay out of the list but still open by link.
+  return onSnapshot(q, (snap) => cb(snap.docs.filter((d) => !d.data().hidden).map((d) => toTrip(d.id, d.data()))), onError)
 }
 
 export function subscribeTrip(db: Firestore, tripId: string, cb: (trip: Trip | null) => void, onError?: (e: Error) => void): Unsubscribe {
