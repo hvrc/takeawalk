@@ -271,18 +271,29 @@ export interface NewPolaroid {
   imageUrl: string
 }
 
+/**
+ * Records an uploaded polaroid. Safe to call again for the same id (a retry
+ * after a half-finished attempt): if the record already exists nothing is
+ * written, so the count is never bumped twice. Needs a server round trip, so
+ * it fails offline and the uploader retries later.
+ */
 export async function savePolaroid(db: Firestore, tripId: string, p: NewPolaroid): Promise<void> {
-  const now = Date.now()
   const { id, ...data } = p
-  const batch = writeBatch(db)
-  batch.set(doc(db, 'trips', tripId, 'polaroids', id), { ...data, createdAt: now })
-  batch.update(doc(db, 'trips', tripId), { polaroidCount: increment(1), updatedAt: now })
-  await batch.commit()
-  // First photo becomes the cover. Done separately so a race can't clobber.
+  const tripRef = doc(db, 'trips', tripId)
+  const polRef = doc(db, 'trips', tripId, 'polaroids', id)
   await runTransaction(db, async (tx) => {
-    const tripRef = doc(db, 'trips', tripId)
-    const snap = await tx.get(tripRef)
-    if (snap.exists() && !snap.data().coverUrl) tx.update(tripRef, { coverUrl: p.imageUrl })
+    const [polSnap, tripSnap] = await Promise.all([tx.get(polRef), tx.get(tripRef)])
+    if (polSnap.exists()) return
+    const now = Date.now()
+    tx.set(polRef, { ...data, createdAt: now })
+    if (tripSnap.exists()) {
+      tx.update(tripRef, {
+        polaroidCount: increment(1),
+        updatedAt: now,
+        // First photo becomes the cover.
+        ...(tripSnap.data().coverUrl ? {} : { coverUrl: p.imageUrl }),
+      })
+    }
   })
 }
 

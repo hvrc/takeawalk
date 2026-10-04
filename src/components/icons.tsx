@@ -77,3 +77,11 @@ export const IconEdit = (p: SVGProps<SVGSVGElement>) => (
     <path d="M4 20h4l10.5-10.5a2.1 2.1 0 00-3-3L5 17v3z" />
   </svg>
 )
+export const IconFlip = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M4 9a8 8 0 0114-3l2 2" />
+    <path d="M20 4v4h-4" />
+    <path d="M20 15a8 8 0 01-14 3l-2-2" />
+    <path d="M4 20v-4h4" />
+  </svg>
+)

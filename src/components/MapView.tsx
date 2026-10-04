@@ -1,12 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Map as MLMap, Marker, setWorkerUrl, type GeoJSONSource, type LngLatBoundsLike } from 'maplibre-gl'
 // MapLibre resolves its worker relative to its own module URL, which breaks once
 // Vite bundles everything into hashed chunks. Let Vite bundle the worker too.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { GeoPoint, Member, Polaroid, Segment } from '../lib/types'
 import { boundsOf } from '../lib/geo'
-
-export const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
+import { inkStyle, PAPER, registerPatterns } from '../lib/mapStyle'
 
 setWorkerUrl(maplibreWorkerUrl)
 
@@ -27,6 +26,8 @@ interface Props {
 
 export default function MapView({ segments, members, polaroids, meId, myFix, tracking, follow, onUserMove, onPolaroidClick, fitKey }: Props) {
   const el = useRef<HTMLDivElement>(null)
+  // Covers the blank map until the style and first tiles have rendered.
+  const [ready, setReady] = useState(false)
   const mapRef = useRef<MLMap | null>(null)
   const loaded = useRef(false)
   const readyQueue = useRef<Array<() => void>>([])
@@ -47,7 +48,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     if (!el.current || mapRef.current) return
     const map = new MLMap({
       container: el.current,
-      style: MAP_STYLE,
+      style: inkStyle(),
       center: [0, 20],
       zoom: 1.5,
       attributionControl: { compact: true },
@@ -55,6 +56,10 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
       dragRotate: false,
     })
     map.touchZoomRotate.disableRotation()
+    registerPatterns(map)
+    map.once('idle', () => setReady(true))
+    // Never leave the overlay up forever on a flaky connection.
+    const readyTimeout = setTimeout(() => setReady(true), 20_000)
     map.on('load', () => {
       map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
       map.addLayer({
@@ -62,7 +67,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
         type: 'line',
         source: 'routes',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 8, 'line-opacity': 0.9 },
+        paint: { 'line-color': PAPER, 'line-width': 8, 'line-opacity': 0.9 },
       })
       map.addLayer({
         id: 'route-line',
@@ -83,6 +88,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     map.on('zoomstart', userMove)
     mapRef.current = map
     return () => {
+      clearTimeout(readyTimeout)
       map.remove()
       mapRef.current = null
       loaded.current = false
@@ -222,7 +228,15 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey, segments.length > 0, polaroids.length > 0, myFix !== null])
 
-  return <div ref={el} className="map" />
+  return (
+    <>
+      <div ref={el} className="map" />
+      <div className={`map-loading ${ready ? 'done' : ''}`} aria-hidden={ready}>
+        <span className="spinner" />
+        <span>Loading map…</span>
+      </div>
+    </>
+  )
 }
 
 function hash(s: string): number {

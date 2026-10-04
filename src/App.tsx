@@ -6,6 +6,7 @@ import { getName, setName as persistName } from './lib/identity'
 import NamePrompt from './components/NamePrompt'
 import Home from './pages/Home'
 import Trip from './pages/Trip'
+import { uploader } from './lib/uploader'
 
 export default function App() {
   const [services, setServices] = useState<Services | null>(null)
@@ -13,7 +14,11 @@ export default function App() {
   const [name, setNameState] = useState<string>(() => getName())
 
   useEffect(() => {
-    getServices().then(setServices, (e: Error) => setError(e.message))
+    getServices().then((s) => {
+      // Start uploading any photos still queued on this phone, from any walk.
+      uploader.start(s)
+      setServices(s)
+    }, (e: Error) => setError(e.message))
   }, [])
 
   const saveName = (n: string) => {

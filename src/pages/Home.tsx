@@ -78,8 +78,8 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
             onChange={(e) => setWalkName(e.target.value)}
             enterKeyHint="go"
           />
-          <button className="btn btn-accent" type="submit" disabled={busy !== null}>
-            {busy === 'create' ? '…' : 'Start'}
+          <button className={`btn btn-accent ${busy === 'create' ? 'busy' : ''}`} type="submit" disabled={busy !== null}>
+            {busy === 'create' ? <span className="spinner sm" aria-label="Starting" /> : 'Start'}
           </button>
         </form>
         <div className="or">or join a friend</div>
@@ -95,12 +95,12 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
             spellCheck={false}
             enterKeyHint="go"
           />
-          <button className="btn" type="submit" disabled={busy !== null || normalizeCode(code).length < 4}>
-            {busy === 'join' ? '…' : 'Join'}
+          <button className={`btn ${busy === 'join' ? 'busy' : ''}`} type="submit" disabled={busy !== null || normalizeCode(code).length < 4}>
+            {busy === 'join' ? <span className="spinner sm" aria-label="Joining" /> : 'Join'}
           </button>
         </form>
         {msg ? (
-          <div className="tiny" style={{ color: '#b3261e' }} onClick={() => setMsg(null)}>
+          <div className="tiny" style={{ color: 'var(--brick)' }} onClick={() => setMsg(null)}>
             {msg}
           </div>
         ) : null}

@@ -2,14 +2,15 @@ const DEVICE_KEY = 'taw.deviceId'
 const NAME_KEY = 'taw.name'
 
 export const MEMBER_COLORS = [
-  '#ff5a5f', // coral
-  '#3a86ff', // blue
-  '#06d6a0', // mint
-  '#ffbe0b', // yellow
-  '#8338ec', // purple
-  '#fb5607', // orange
-  '#ff006e', // pink
-  '#118ab2', // teal
+  // Print inks: strong enough to read as a line on the watercolour map.
+  '#c0432e', // brick
+  '#2f6fa3', // slate blue
+  '#3a8a3f', // leaf
+  '#d9961a', // ochre
+  '#7b3f6e', // plum
+  '#e06a2c', // marigold
+  '#1f7f80', // teal
+  '#8a2b2b', // maroon
 ]
 
 function uuid(): string {

@@ -17,8 +17,12 @@ export interface Compressed {
   previewUrl: string
 }
 
-/** Downscale a camera photo to a sensible upload size. Browsers apply EXIF rotation when drawing. */
-export async function compressImage(file: File | Blob, maxEdge = 1600, quality = 0.86): Promise<Compressed> {
+/**
+ * Downscale a camera photo to a sensible upload size, keeping its original
+ * proportions (the polaroid crops to a square only on screen and when saved as
+ * a polaroid). Browsers apply EXIF rotation when drawing.
+ */
+export async function compressImage(file: File | Blob, maxEdge = 2560, quality = 0.9): Promise<Compressed> {
   const url = URL.createObjectURL(file)
   try {
     const img = await loadImage(url)
@@ -51,14 +55,17 @@ export interface PolaroidRenderOptions {
 }
 
 /**
- * Renders the framed polaroid (square photo, caption in the fat bottom border)
- * to a JPEG blob at 1200x1440.
+ * Renders the framed polaroid to a JPEG at Polaroid 600 proportions
+ * (88 x 107 mm frame, 79 mm square photo): 1200 x 1459, ink keyline border,
+ * caption centred in the deep bottom strip.
  */
 export async function renderPolaroid(opts: PolaroidRenderOptions): Promise<Blob> {
   const W = 1200
-  const H = 1440
-  const PAD = 72
-  const PHOTO = W - PAD * 2 // 1056, square
+  const H = Math.round((W * 107) / 88)
+  const SIDE = Math.round(W * 0.051)
+  const TOP = Math.round(W * 0.068)
+  const PHOTO = W - SIDE * 2
+  const PAD = SIDE
 
   await document.fonts.load('600 92px Caveat').catch(() => undefined)
   const img = await loadImage(opts.imageUrl, opts.crossOrigin)
@@ -68,29 +75,20 @@ export async function renderPolaroid(opts: PolaroidRenderOptions): Promise<Blob>
   canvas.height = H
   const ctx = canvas.getContext('2d')!
 
-  // Frame: warm off-white with a hint of gradient like real film stock.
-  const g = ctx.createLinearGradient(0, 0, 0, H)
-  g.addColorStop(0, '#fcfbf7')
-  g.addColorStop(1, '#f3efe6')
-  ctx.fillStyle = g
+  ctx.fillStyle = '#fbf8f0'
   ctx.fillRect(0, 0, W, H)
 
   // Photo, centre-cropped to a square.
   const side = Math.min(img.naturalWidth, img.naturalHeight)
   const sx = (img.naturalWidth - side) / 2
   const sy = (img.naturalHeight - side) / 2
-  ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,0.18)'
-  ctx.shadowBlur = 6
-  ctx.fillStyle = '#111'
-  ctx.fillRect(PAD, PAD, PHOTO, PHOTO)
-  ctx.restore()
-  ctx.drawImage(img, sx, sy, side, side, PAD, PAD, PHOTO, PHOTO)
-
-  // Inner edge: a thin darker line like the real chemical border.
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)'
-  ctx.lineWidth = 2
-  ctx.strokeRect(PAD + 1, PAD + 1, PHOTO - 2, PHOTO - 2)
+  ctx.fillStyle = '#1b1916'
+  ctx.fillRect(SIDE, TOP, PHOTO, PHOTO)
+  ctx.drawImage(img, sx, sy, side, side, SIDE, TOP, PHOTO, PHOTO)
+  // Ink keyline around the whole card.
+  ctx.strokeStyle = '#2b2622'
+  ctx.lineWidth = 12
+  ctx.strokeRect(6, 6, W - 12, H - 12)
 
   // Caption
   const caption = opts.caption.trim()
@@ -104,8 +102,8 @@ export async function renderPolaroid(opts: PolaroidRenderOptions): Promise<Blob>
       size -= 4
       ctx.font = `600 ${size}px Caveat, "Segoe Script", "Bradley Hand", cursive`
     }
-    const bottomBand = H - (PAD + PHOTO)
-    ctx.fillText(caption, W / 2, PAD + PHOTO + bottomBand / 2 + 4, W - PAD * 2 - 24)
+    const bottomBand = H - (TOP + PHOTO)
+    ctx.fillText(caption, W / 2, TOP + PHOTO + bottomBand / 2 + 4, W - PAD * 2 - 24)
   }
 
   return canvasToBlob(canvas, 'image/jpeg', 0.92)

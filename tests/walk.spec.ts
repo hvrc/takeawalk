@@ -12,6 +12,8 @@ function step(i: number, bearing: 'east' | 'north') {
 
 async function newPhone(browser: Browser, name: string): Promise<{ ctx: BrowserContext; page: Page }> {
   const ctx = await browser.newContext({ geolocation: { ...START, accuracy: 8 }, permissions: ['geolocation'], ignoreHTTPSErrors: true })
+  // No share sheet in tests, so saves fall through to a real download.
+  await ctx.addInitScript(() => Object.defineProperty(navigator, 'share', { value: undefined }))
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.log(`[${name}] pageerror`, e.message))
   page.on('console', (m) => {
@@ -19,7 +21,7 @@ async function newPhone(browser: Browser, name: string): Promise<{ ctx: BrowserC
   })
   await page.goto('/')
   await page.getByPlaceholder('your name').fill(name)
-  await page.getByRole('button', { name: "Let's go" }).click()
+  await page.getByRole('button', { name: 'Get ready' }).click()
   await expect(page.getByText('All walks')).toBeVisible()
   return { ctx, page }
 }
@@ -66,7 +68,9 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.locator('input[type=file]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: photoA })
   await expect(a.page.locator('.sheet')).toBeVisible()
   await a.page.getByPlaceholder('write a caption').fill('ducks at the pier')
-  await a.page.getByPlaceholder(/Description for the back/).fill('Three ducks, one very opinionated goose.')
+  await a.page.locator('.sheet .flip-front .flip-btn').click()
+  await expect(a.page.locator('.sheet .flip')).toHaveClass(/is-flipped/)
+  await a.page.getByPlaceholder('write on the back…').fill('Three ducks, one very opinionated goose.')
   await a.page.screenshot({ path: `${SHOTS}/03-capture-sheet.png` })
   await a.page.getByRole('button', { name: 'Pin it to the map' }).click()
   await expect(a.page.locator('.pin-polaroid')).toHaveCount(1)
@@ -116,14 +120,24 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await expect(a.page.locator('.viewer .polaroid-caption')).toHaveText('found a cat')
   await a.page.waitForTimeout(400)
   await a.page.screenshot({ path: `${SHOTS}/06-viewer-front.png` })
-  await a.page.locator('.flip-front .polaroid-photo').click()
-  await expect(a.page.locator('.flip')).toHaveClass(/is-flipped/)
+  // Tapping the photo shows it whole, and it can be saved at full size.
+  await a.page.locator('.flip-front .polaroid-photo img').click()
+  await expect(a.page.locator('.fullview img')).toBeVisible()
+  await a.page.screenshot({ path: `${SHOTS}/06b-full-photo.png` })
+  const [full] = await Promise.all([a.page.waitForEvent('download'), a.page.getByRole('button', { name: 'Save full photo' }).click()])
+  expect(full.suggestedFilename()).toBe('found-a-cat-full.jpg')
+  await a.page.locator('.fullview-bar').getByRole('button', { name: 'Close' }).click()
+  await expect(a.page.locator('.fullview')).toHaveCount(0)
+  // The flip button turns it over.
+  await a.page.locator('.flip-front .flip-btn').click()
+  await expect(a.page.locator('.viewer .flip')).toHaveClass(/is-flipped/)
   await a.page.waitForTimeout(700)
   await expect(a.page.locator('.polaroid-back')).toContainText('Friend')
+  await expect(a.page.locator('.polaroid-back textarea')).toHaveCount(0) // not A's photo: read-only
   await a.page.screenshot({ path: `${SHOTS}/07-viewer-back.png` })
   // Google Maps link opens a new tab with the coordinates.
-  await a.page.locator('.flip-back .polaroid-back').click()
-  await expect(a.page.locator('.flip')).not.toHaveClass(/is-flipped/)
+  await a.page.locator('.flip-back .flip-btn').click()
+  await expect(a.page.locator('.viewer .flip')).not.toHaveClass(/is-flipped/)
   const [popup] = await Promise.all([
     a.page.context().waitForEvent('page'),
     a.page.getByRole('button', { name: 'Open in Google Maps' }).click(),
@@ -139,13 +153,22 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await download.saveAs(`${SHOTS}/08-saved-polaroid.jpg`)
   await a.page.locator('.viewer-close').click()
 
-  // --- A edits own polaroid text from the back
+  // --- A edits own caption in place (Enter saves and drops the keyboard) and writes on the back
   await a.page.locator('.pin-polaroid').nth(0).click()
-  await a.page.locator('.flip-front .polaroid-photo').click()
-  await a.page.getByRole('button', { name: 'Edit' }).click()
+  const cap = a.page.getByLabel('Caption')
+  await cap.fill('ducks, and a goose')
+  await cap.press('Enter')
+  await expect(cap).not.toBeFocused()
+  await expect(a.page.locator('.toast')).toContainText('Saved')
+  await a.page.locator('.flip-front .flip-btn').click()
   await a.page.locator('.polaroid-back textarea').fill('Updated from the back.')
-  await a.page.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(a.page.locator('.polaroid-back .desc')).toHaveText('Updated from the back.')
+  await a.page.locator('.polaroid-back .foot').click() // blur saves
+  await expect(a.page.locator('.toast')).toContainText('Saved')
+  await a.page.locator('.viewer-close').click()
+  // Reopen: both edits came back from Firestore.
+  await a.page.locator('.pin-polaroid').nth(0).click()
+  await expect(a.page.getByLabel('Caption')).toHaveValue('ducks, and a goose')
+  await expect(a.page.locator('.polaroid-back textarea')).toHaveValue('Updated from the back.')
   await a.page.locator('.viewer-close').click()
 
   // --- pause / resume

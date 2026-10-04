@@ -9,7 +9,8 @@ export default function NamePrompt({ onDone, initial = '' }: { onDone: (name: st
   return (
     <div className="splash">
       <h1 className="wordmark">
-        take a walk<small>walks, together, with polaroids along the way</small>
+        take a walk <span className="nowrap">(with a friend)</span>
+        <small>and pin some pictures along the way</small>
       </h1>
       <form onSubmit={submit}>
         <label className="muted tiny center">What should we call you?</label>
@@ -24,7 +25,7 @@ export default function NamePrompt({ onDone, initial = '' }: { onDone: (name: st
           enterKeyHint="go"
         />
         <button className="btn btn-accent" type="submit" disabled={!value.trim()}>
-          Let's go
+          Get ready
         </button>
       </form>
     </div>

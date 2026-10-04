@@ -33,7 +33,9 @@ service cloud.firestore {
                       && isString(request.resource.data.memberId, 64)
                       && request.resource.data.lat is number
                       && request.resource.data.lng is number;
-        allow update: if isString(request.resource.data.caption, 120)
+        // Only the words can change; the photo, place and author are fixed.
+        allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption', 'description'])
+                      && isString(request.resource.data.caption, 120)
                       && isString(request.resource.data.description, 2000);
         allow delete: if false;
       }

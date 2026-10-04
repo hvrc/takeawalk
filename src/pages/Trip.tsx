@@ -2,23 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { useNavigate, useParams } from 'react-router-dom'
 import { useServices } from '../services'
 import { useTrip } from '../hooks/useTrip'
-import { getDeviceId } from '../lib/identity'
+import { getDeviceId, MEMBER_COLORS } from '../lib/identity'
 import { Tracker, type TrackerState } from '../lib/tracker'
 import {
   appendPoints,
   endSegment,
   joinTrip,
   newPolaroidId,
-  polaroidStoragePath,
   renameTrip,
-  savePolaroid,
   setTripStatus,
   startSegment,
   updatePolaroidText,
-  uploadPolaroidImage,
 } from '../lib/tripApi'
 import { compressImage, type Compressed } from '../lib/image'
-import { uploadQueue, type PendingUpload } from '../lib/uploadQueue'
+import type { PendingUpload } from '../lib/uploadQueue'
+import { uploader } from '../lib/uploader'
 import { formatDistance, formatDuration, pathDistance } from '../lib/geo'
 import type { GeoPoint, Polaroid as PolaroidT } from '../lib/types'
 import MapView from '../components/MapView'
@@ -39,14 +37,14 @@ interface PendingLocal {
 export default function Trip({ name }: { name: string }) {
   const { tripId = '' } = useParams()
   const nav = useNavigate()
-  const { db, storage } = useServices()
+  const { db } = useServices()
   const { trip, segments, polaroids, loading, error } = useTrip(tripId)
   const me = useMemo(() => ({ id: getDeviceId(), name }), [name])
   const meRef = useRef(me)
   meRef.current = me
   const member = trip?.members[me.id]
   const isMember = !!member
-  const colorRef = useRef('#ff5a5f')
+  const colorRef = useRef(MEMBER_COLORS[0])
   if (member) colorRef.current = member.color
 
   const trackerRef = useRef<Tracker | null>(null)
@@ -60,7 +58,22 @@ export default function Trip({ name }: { name: string }) {
   const [capture, setCapture] = useState<Compressed | null>(null)
   const captureFix = useRef<GeoPoint | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const [pending, setPending] = useState<PendingLocal[]>([])
+  // Photos for this walk that aren't confirmed in the cloud yet (the uploader
+  // owns them; this just mirrors its state for display).
+  const [uploadTick, setUploadTick] = useState(0)
+  useEffect(() => uploader.subscribe(() => setUploadTick((t) => t + 1)), [])
+  const previewUrls = useRef(new Map<string, string>())
+  const pending: PendingLocal[] = useMemo(() => {
+    void uploadTick
+    return uploader.pendingFor(tripId).map((st) => {
+      let url = previewUrls.current.get(st.item.id)
+      if (!url) {
+        url = URL.createObjectURL(st.item.blob)
+        previewUrls.current.set(st.item.id, url)
+      }
+      return { item: st.item, previewUrl: url, progress: st.progress, failed: st.failed }
+    })
+  }, [tripId, uploadTick])
   const [, setTick] = useState(0)
 
   const showToast = useCallback((msg: string, ms = 2600) => {
@@ -128,65 +141,6 @@ export default function Trip({ name }: { name: string }) {
       /* ignore */
     }
   }, [trip, isMember, tripId, showToast])
-
-  // ---- pending uploads (offline-safe) -------------------------------------
-  const processUpload = useCallback(
-    async (item: PendingUpload) => {
-      setPending((prev) => prev.map((p) => (p.item.id === item.id ? { ...p, failed: false, progress: 0 } : p)))
-      try {
-        const path = polaroidStoragePath(item.tripId, item.id)
-        const url = await uploadPolaroidImage(storage, path, item.blob, (f) =>
-          setPending((prev) => prev.map((p) => (p.item.id === item.id ? { ...p, progress: f } : p))),
-        )
-        await savePolaroid(db, item.tripId, {
-          id: item.id,
-          memberId: item.memberId,
-          memberName: item.memberName,
-          color: item.color,
-          lat: item.lat,
-          lng: item.lng,
-          acc: item.acc,
-          takenAt: item.takenAt,
-          caption: item.caption,
-          description: item.description,
-          imagePath: path,
-          imageUrl: url,
-        })
-        await uploadQueue.remove(item.id)
-        setPending((prev) => prev.filter((p) => p.item.id !== item.id))
-      } catch (e) {
-        console.warn('upload failed, will retry', e)
-        setPending((prev) => prev.map((p) => (p.item.id === item.id ? { ...p, failed: true } : p)))
-      }
-    },
-    [db, storage],
-  )
-
-  // Load anything left over from a previous session and retry when back online.
-  useEffect(() => {
-    let cancelled = false
-    uploadQueue.forTrip(tripId).then((items) => {
-      if (cancelled || items.length === 0) return
-      setPending((prev) => {
-        const known = new Set(prev.map((p) => p.item.id))
-        return [...prev, ...items.filter((i) => !known.has(i.id)).map((item) => ({ item, previewUrl: URL.createObjectURL(item.blob), progress: 0 }))]
-      })
-      items.forEach((item) => void processUpload(item))
-    })
-    const retry = () => {
-      setPending((prev) => {
-        prev.filter((p) => p.failed).forEach((p) => void processUpload(p.item))
-        return prev
-      })
-    }
-    window.addEventListener('online', retry)
-    const i = setInterval(retry, 30_000)
-    return () => {
-      cancelled = true
-      window.removeEventListener('online', retry)
-      clearInterval(i)
-    }
-  }, [tripId, processUpload])
 
   // ---- derived -------------------------------------------------------------
   const allPolaroids: PolaroidT[] = useMemo(() => {
@@ -318,14 +272,10 @@ export default function Trip({ name }: { name: string }) {
       description,
       createdAt: Date.now(),
     }
-    try {
-      await uploadQueue.put(item)
-    } catch {
-      /* IndexedDB unavailable: continue with an in-memory upload */
-    }
-    setPending((prev) => [...prev, { item, previewUrl: capture.previewUrl, progress: 0 }])
+    previewUrls.current.set(item.id, capture.previewUrl)
     setCapture(null)
-    void processUpload(item)
+    const persisted = await uploader.enqueue(item)
+    if (!persisted) showToast("Couldn't keep a copy on this phone. Keep the app open until the photo uploads.", 7000)
   }
 
   const saveText = async (caption: string, description: string) => {
@@ -511,6 +461,10 @@ export default function Trip({ name }: { name: string }) {
       {capture ? (
         <CaptureSheet
           photo={capture}
+          memberName={me.name}
+          color={member?.color ?? colorRef.current}
+          lat={(captureFix.current ?? myFix ?? member?.lastPos)?.lat}
+          lng={(captureFix.current ?? myFix ?? member?.lastPos)?.lng}
           onRetake={retake}
           onCancel={() => {
             URL.revokeObjectURL(capture.previewUrl)
