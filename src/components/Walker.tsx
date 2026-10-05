@@ -28,6 +28,12 @@ const POSES = {
     torso: 'M12 7 L12 17.6',
     lines: ['M12 17.6 L13.2 22.6 L13 28.6', 'M12 17.6 L10.8 22.6 L9.8 28.4', 'M12 9.8 L13.8 13.8 L14.4 17.2', 'M12 9.8 L9.8 13.4 L8.2 16.4'],
   },
+  // Standing still, arms at the sides.
+  stand: {
+    head: [12, 4],
+    torso: 'M12 7 L12 17.6',
+    lines: ['M12 17.6 L12.9 23 L13.2 28.6', 'M12 17.6 L11.1 23 L10.8 28.6', 'M12 9.8 L14.3 13.6 L14.8 17.4', 'M12 9.8 L9.7 13.6 L9.2 17.4'],
+  },
   stride: {
     head: [12.2, 4],
     torso: 'M12.2 7 L12 17.2',
@@ -41,6 +47,8 @@ interface Props {
   size?: number
   /** Swap between two poses, as if walking. */
   walking?: boolean
+  /** Stand still and look one way, then the other. */
+  looking?: boolean
   className?: string
   style?: CSSProperties
   title?: string
@@ -70,10 +78,10 @@ function Figure({ variant, pose }: { variant: WalkerVariant; pose: keyof typeof 
   )
 }
 
-export default function Walker({ variant = 'solid', color, size = 24, walking = false, className = '', style, title }: Props) {
+export default function Walker({ variant = 'solid', color, size = 24, walking = false, looking = false, className = '', style, title }: Props) {
   return (
     <svg
-      className={`walker ${walking ? 'walking' : ''} ${className}`}
+      className={`walker ${walking ? 'walking' : ''} ${looking && !walking ? 'looking' : ''} ${className}`}
       viewBox="0 0 24 32"
       width={size * 0.75}
       height={size}
@@ -82,8 +90,14 @@ export default function Walker({ variant = 'solid', color, size = 24, walking = 
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <Figure variant={variant} pose="a" />
-      {walking ? <Figure variant={variant} pose="b" /> : null}
+      {looking && !walking ? (
+        <Figure variant={variant} pose="stand" />
+      ) : (
+        <>
+          <Figure variant={variant} pose="a" />
+          {walking ? <Figure variant={variant} pose="b" /> : null}
+        </>
+      )}
     </svg>
   )
 }

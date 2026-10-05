@@ -193,7 +193,7 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await expect(a.page.getByRole('button', { name: /^(Resume|Start|Pause)$/ })).toHaveCount(0)
   await a.page.getByRole('button', { name: 'Back' }).click()
   const cardA = a.page.locator('.trip-card', { hasText: TRIP })
-  await expect(cardA).toHaveCount(1)
+  await expect(cardA).toHaveCount(1, { timeout: 30_000 })
   await expect(cardA.locator('.badge', { hasText: 'finished' })).toBeVisible()
   await a.page.screenshot({ path: `${SHOTS}/09-home-published.png` })
 

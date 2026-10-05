@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useServices } from '../services'
 import { useTrip } from '../hooks/useTrip'
 import { deviceLabel, getDeviceId, MEMBER_COLORS } from '../lib/identity'
+import Walker from '../components/Walker'
 import { Tracker, type TrackerState } from '../lib/tracker'
 import {
   appendPoints,
@@ -416,6 +417,8 @@ export default function Trip({ name }: { name: string }) {
           ))}
         </div>
       ) : null}
+
+      <Walker className="map-walker" variant="dotted" color="var(--leaf)" size={46} walking={tracking} looking={!tracking} />
 
       <button
         className="btn-icon map-toggle"

@@ -453,7 +453,7 @@ textarea.field { resize: none; line-height: 1.4; }
   .recenter, .map-toggle { right: auto; left: calc(50% + 260px + 10px); }
   .recenter { bottom: calc(10px + var(--sab)); }
   .map-toggle { bottom: calc(62px + var(--sab)); }
-  .map .maplibregl-ctrl-bottom-right { bottom: auto; top: 10px; right: 10px; }
+  .map .maplibregl-ctrl-bottom-right { bottom: calc(10px + var(--sab)); right: auto; left: 10px; }
 }
 
 /* ---------- admin ---------- */
@@ -493,3 +493,38 @@ textarea.field { resize: none; line-height: 1.4; }
 .modal-close { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; min-height: 36px; }
 .empty .walker-parade { margin-bottom: 12px; }
 .empty p { margin: 0; }
+
+/* a still map of somewhere nice, at the top of home */
+.place-map { position: relative; margin: 0 0 14px; height: 170px; border: var(--rule); border-radius: var(--radius); overflow: hidden; background: var(--paper-2); }
+.place-map-canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s ease; }
+.place-map.ready .place-map-canvas { opacity: 1; }
+.place-map figcaption {
+  position: absolute; left: 10px; bottom: 10px; display: grid; gap: 1px; padding: 5px 9px;
+  background: var(--card); border: 1.5px solid var(--ink); border-radius: 3px; line-height: 1.15;
+}
+.place-map figcaption b { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-stretch: 75%; }
+.place-map figcaption span { font-size: 11px; color: var(--ink-2); }
+
+/* standing and looking around: face one way, then the other, with pauses */
+.walker.looking { animation: look-around 4.5s step-end infinite; transform-origin: 50% 50%; }
+@keyframes look-around {
+  0%, 38% { transform: scaleX(1); }
+  45%, 88% { transform: scaleX(-1); }
+  95%, 100% { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) { .walker.looking { animation: none; } }
+
+/* home masthead: a dotted walker stepping into the "t" */
+.wordmark.with-walker { position: relative; padding-left: 30px; }
+.wordmark-walker { position: absolute; left: 4px; bottom: 0.06em; }
+.start-card h2 { display: flex; align-items: flex-end; gap: 8px; }
+
+/* walk screen: a walker above the map buttons, walking only while you are */
+.map-walker {
+  /* a thin paper halo so the dotted figure reads on a busy map */
+  filter: drop-shadow(0 0 1.2px var(--card)) drop-shadow(0 0 1.2px var(--card)) drop-shadow(0 0 1px var(--card));
+}
+.map-walker { position: absolute; right: 12px; bottom: calc(var(--bar-h, 150px) + 126px + var(--sab)); z-index: 5; pointer-events: none; }
+@media (min-width: 720px) {
+  .map-walker { right: auto; left: calc(50% + 260px + 13px); bottom: calc(116px + var(--sab)); }
+}

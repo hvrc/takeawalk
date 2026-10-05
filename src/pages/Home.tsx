@@ -8,6 +8,7 @@ import type { Trip } from '../lib/types'
 import Polaroid from '../components/Polaroid'
 import { IconClose, IconPhoto } from '../components/icons'
 import Walker, { WalkerParade } from '../components/Walker'
+import PlaceMap from '../components/PlaceMap'
 
 export default function Home({ name, onRename }: { name: string; onRename: (n: string) => void }) {
   const { db } = useServices()
@@ -57,15 +58,22 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
   return (
     <div className="home">
       <header className="home-header">
-        <h1 className="wordmark">take a walk</h1>
+        <h1 className="wordmark with-walker">
+          <Walker variant="dotted" color="var(--leaf)" size={48} className="wordmark-walker" />
+          take a walk
+        </h1>
         <button className="name-pill" onClick={rename} aria-label="Change your name">
           <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>
           {name}
         </button>
       </header>
 
+      <PlaceMap />
+
       <section className="card start-card">
-        <h2>Start a walk</h2>
+        <h2>
+          Start a walk <Walker variant="solid" color="var(--ink)" size={26} walking />
+        </h2>
         <form className="row" onSubmit={onCreate}>
           <input
             className="field"
