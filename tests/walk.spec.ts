@@ -126,7 +126,7 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.waitForTimeout(400)
   await a.page.screenshot({ path: `${SHOTS}/06-viewer-front.png` })
   // Tapping the photo shows it whole, and it can be saved at full size.
-  await a.page.locator('.flip-front .polaroid-photo img').click()
+  await a.page.locator('.flip-front .full-btn').click()
   await expect(a.page.locator('.fullview img')).toBeVisible()
   await a.page.screenshot({ path: `${SHOTS}/06b-full-photo.png` })
   const [full] = await Promise.all([a.page.waitForEvent('download'), a.page.getByRole('button', { name: 'Save full photo' }).click()])
@@ -182,22 +182,25 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.getByRole('button', { name: 'Resume' }).click()
   await expect(a.page.locator('.status-line')).toContainText('Walking', { timeout: 20_000 })
 
-  // --- both finish; the trip is published once nobody is walking
+  // --- B finishes: the walk is finished for everyone, and stays finished
   b.page.once('dialog', (d) => d.accept())
   await b.page.getByRole('button', { name: 'Finish' }).click()
   await expect(b.page.locator('.toast')).toContainText('Published')
-  a.page.once('dialog', (d) => d.accept())
-  await a.page.getByRole('button', { name: 'Finish' }).click()
-  await expect(a.page.locator('.toast')).toContainText('Published')
+  await expect(b.page.locator('.finished-line')).toBeVisible()
+  // A was still walking: their phone stops and the controls go away.
+  await expect(a.page.locator('.finished-line')).toBeVisible({ timeout: 15_000 })
+  await expect(a.page.getByRole('button', { name: 'Take a polaroid' })).toHaveCount(0)
+  await expect(a.page.getByRole('button', { name: /^(Resume|Start|Pause)$/ })).toHaveCount(0)
   await a.page.getByRole('button', { name: 'Back' }).click()
   const cardA = a.page.locator('.trip-card', { hasText: TRIP })
   await expect(cardA).toHaveCount(1)
-  await expect(cardA.locator('.badge', { hasText: 'published' })).toBeVisible()
+  await expect(cardA.locator('.badge', { hasText: 'finished' })).toBeVisible()
   await a.page.screenshot({ path: `${SHOTS}/09-home-published.png` })
 
-  // Reopening shows Resume (published route stays, new tracking appends).
+  // Reopening: still finished, no way to add to it, photos still there.
   await cardA.click()
-  await expect(a.page.getByRole('button', { name: /^Resume$/ })).toBeVisible()
+  await expect(a.page.locator('.finished-line')).toBeVisible()
+  await expect(a.page.getByRole('button', { name: /^(Resume|Start)$/ })).toHaveCount(0)
   await expect(a.page.locator('.pin-photo')).toHaveCount(2)
   await a.page.waitForTimeout(1500)
   await a.page.screenshot({ path: `${SHOTS}/10-reopened.png` })

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import Polaroid from './Polaroid'
 import PolaroidBack from './PolaroidBack'
-import { IconClose, IconFlip } from './icons'
+import { IconClose, IconExpand, IconFlip } from './icons'
+import CaptionInput from './CaptionInput'
+import FullPhoto from './FullPhoto'
 import type { Compressed } from '../lib/image'
 
 interface Props {
@@ -19,6 +21,7 @@ export default function CaptureSheet({ photo, memberName, color, lat, lng, onRet
   const [caption, setCaption] = useState('')
   const [description, setDescription] = useState('')
   const [flipped, setFlipped] = useState(false)
+  const [full, setFull] = useState(false)
   const takenAt = useState(() => Date.now())[0]
 
   const flipButton = (
@@ -42,18 +45,15 @@ export default function CaptureSheet({ photo, memberName, color, lat, lng, onRet
               imageUrl={photo.previewUrl}
               caption={caption}
               size="full"
-              photoOverlay={flipButton}
-              captionNode={
-                <div className="polaroid-caption">
-                  <input
-                    value={caption}
-                    maxLength={120}
-                    placeholder="write a caption"
-                    onChange={(e) => setCaption(e.target.value)}
-                    enterKeyHint="done"
-                  />
-                </div>
+              photoOverlay={
+                <>
+                  <button className="full-btn" onClick={() => setFull(true)} aria-label="See the whole photo">
+                    <IconExpand />
+                  </button>
+                  {flipButton}
+                </>
               }
+              captionNode={<CaptionInput value={caption} onChange={setCaption} />}
             />
           </div>
           <div className="flip-face flip-back">
@@ -73,13 +73,14 @@ export default function CaptureSheet({ photo, memberName, color, lat, lng, onRet
       </div>
       <p className="sheet-hint">{flipped ? 'Anything you write here goes on the back.' : 'Flip it over to write on the back.'}</p>
       <div className="sheet-actions">
-        <button className="btn btn-ghost" onClick={onRetake}>
-          Retake
-        </button>
         <button className="btn btn-accent" onClick={() => onSave(caption.trim(), description.trim())}>
           Pin it to the map
         </button>
+        <button className="btn btn-ghost" onClick={onRetake}>
+          Retake
+        </button>
       </div>
+      {full ? <FullPhoto src={photo.previewUrl} alt={caption} onClose={() => setFull(false)} /> : null}
     </div>
   )
 }

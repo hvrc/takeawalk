@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import type { Polaroid as PolaroidT } from '../lib/types'
 import Polaroid from './Polaroid'
 import PolaroidBack from './PolaroidBack'
-import { IconClose, IconDownload, IconFlip, IconPin } from './icons'
+import { IconClose, IconDownload, IconExpand, IconFlip, IconPin } from './icons'
+import CaptionInput from './CaptionInput'
+import FullPhoto from './FullPhoto'
 import { googleMapsUrl } from '../lib/geo'
 import { renderPolaroid, saveBlob, slugify } from '../lib/image'
 
@@ -110,23 +112,22 @@ export default function PolaroidViewer({ polaroid: p, canEdit, onClose, onSaveTe
               imageUrl={p.imageUrl}
               caption={caption}
               size="full"
-              onPhotoClick={() => setFull(true)}
-              photoOverlay={flipButton}
-              captionNode={
-                editable ? (
-                  <div className="polaroid-caption">
-                    <input
-                      value={caption}
-                      maxLength={120}
-                      placeholder="write a caption"
-                      onChange={(e) => setCaption(e.target.value)}
-                      onBlur={commit}
-                      enterKeyHint="done"
-                      aria-label="Caption"
-                    />
-                  </div>
-                ) : undefined
+              photoOverlay={
+                <>
+                  <button
+                    className="full-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setFull(true)
+                    }}
+                    aria-label="See the whole photo"
+                  >
+                    <IconExpand />
+                  </button>
+                  {flipButton}
+                </>
               }
+              captionNode={editable ? <CaptionInput value={caption} onChange={setCaption} onCommit={commit} /> : undefined}
             >
               <div className="polaroid-actions">
                 <button onClick={openMaps} aria-label="Open in Google Maps" title="Open in Google Maps">
@@ -154,27 +155,9 @@ export default function PolaroidViewer({ polaroid: p, canEdit, onClose, onSaveTe
           </div>
         </div>
       </div>
-      <div className="viewer-hint">{flipped ? 'tap the arrows to flip back' : 'tap the photo to see it whole'}</div>
+      <div className="viewer-hint">{flipped ? 'tap the arrows to flip back' : 'corners: see it whole · flip it over'}</div>
 
-      {full ? (
-        <div
-          className="fullview"
-          onClick={(e) => {
-            e.stopPropagation()
-            setFull(false)
-          }}
-        >
-          <img src={p.imageUrl} alt={caption || 'photo'} />
-          <div className="fullview-bar" onClick={(e) => e.stopPropagation()}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setFull(false)}>
-              <IconClose style={{ width: 16, height: 16 }} /> Close
-            </button>
-            <button className="btn btn-sm" onClick={saveOriginal} disabled={saving}>
-              <IconDownload style={{ width: 16, height: 16 }} /> Save full photo
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {full ? <FullPhoto src={p.imageUrl} alt={caption} onClose={() => setFull(false)} onSave={saveOriginal} saving={saving} /> : null}
     </div>
   )
 }

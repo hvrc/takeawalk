@@ -9,20 +9,28 @@ service cloud.firestore {
       return v is string && v.size() <= max;
     }
 
+    function trip(tripId) {
+      return get(/databases/$(database)/documents/trips/$(tripId)).data;
+    }
+
     match /trips/{tripId} {
       allow read: if true;
       allow create: if isString(request.resource.data.name, 80)
                     && isString(request.resource.data.code, 12)
                     && request.resource.data.status in ['active', 'published'];
+      // A finished walk stays finished.
       allow update: if isString(request.resource.data.name, 80)
-                    && request.resource.data.status in ['active', 'published'];
+                    && request.resource.data.status in ['active', 'published']
+                    && !(resource.data.status == 'published' && request.resource.data.status != 'published');
       allow delete: if false;
 
       match /segments/{segmentId} {
         allow read: if true;
+        // No new route on a finished walk.
         allow create, update: if request.resource.data.points is list
                               && request.resource.data.points.size() <= 2000
-                              && isString(request.resource.data.memberId, 64);
+                              && isString(request.resource.data.memberId, 64)
+                              && trip(tripId).status == 'active';
         allow delete: if false;
       }
 
@@ -32,7 +40,11 @@ service cloud.firestore {
                       && isString(request.resource.data.description, 2000)
                       && isString(request.resource.data.memberId, 64)
                       && request.resource.data.lat is number
-                      && request.resource.data.lng is number;
+                      && request.resource.data.lng is number
+                      // No new photos on a finished walk, except ones taken before it
+                      // finished that are still uploading (never lose a photo).
+                      && (trip(tripId).status == 'active'
+                          || request.resource.data.takenAt <= trip(tripId).get('finishedAt', 0));
         // Only the words can change; the photo, place and author are fixed.
         allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption', 'description'])
                       && isString(request.resource.data.caption, 120)

@@ -130,6 +130,11 @@ textarea.field { resize: none; line-height: 1.4; }
 .known { width: 100%; max-width: 340px; display: grid; gap: 12px; margin-top: 6px; }
 .known-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .known-list .chip { padding: 6px 12px 6px 8px; font-size: 14px; }
+.confirm-card { width: 100%; max-width: 340px; display: grid; gap: 10px; text-align: center; }
+.confirm-card h2 { margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; font-stretch: 75%; }
+.confirm-card p { margin: 0; font-size: 14px; line-height: 1.4; }
+.confirm-error { color: var(--brick); font-weight: 600; }
+.finished-line { font-size: 13px; color: var(--ink-2); text-align: center; padding: 0 4px; }
 .splash label { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; font-stretch: 75%; }
 .error-box {
   max-width: 420px; padding: 16px; border-radius: 4px; background: #f6dccf; color: var(--maroon); border: var(--rule);
@@ -209,7 +214,7 @@ textarea.field { resize: none; line-height: 1.4; }
 }
 .map-loading.done { opacity: 0; }
 .map .maplibregl-ctrl-attrib { font-size: 10px; background: rgba(248, 242, 226, 0.75); }
-.map .maplibregl-ctrl-bottom-right { bottom: calc(160px + var(--sab)); }
+.map .maplibregl-ctrl-bottom-right { bottom: calc(var(--bar-h, 150px) + 16px + var(--sab)); right: 60px; }
 .map .maplibregl-ctrl-bottom-left { display: none; }
 
 .topbar {
@@ -233,8 +238,9 @@ textarea.field { resize: none; line-height: 1.4; }
 .members-row .chip.me { background: var(--ochre); }
 .members-row .chip .walking { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: pulse 1.4s infinite; }
 
-.recenter { position: absolute; right: 10px; bottom: calc(166px + var(--sab)); z-index: 5; }
-.map-toggle { position: absolute; right: 10px; bottom: calc(218px + var(--sab)); z-index: 5; }
+/* map buttons ride just above the bottom panel, whatever its height (--bar-h is measured) */
+.recenter { position: absolute; right: 10px; bottom: calc(var(--bar-h, 150px) + 20px + var(--sab)); z-index: 5; }
+.map-toggle { position: absolute; right: 10px; bottom: calc(var(--bar-h, 150px) + 72px + var(--sab)); z-index: 5; }
 
 .bottombar {
   position: absolute; left: 10px; right: 10px; bottom: calc(10px + var(--sab)); z-index: 6;
@@ -328,6 +334,17 @@ textarea.field { resize: none; line-height: 1.4; }
 }
 .polaroid.full .polaroid-caption { padding: 0 13%; } /* clear the corner buttons */
 .polaroid-caption.placeholder { color: var(--ink-3); font-weight: 500; }
+/* caption text and the caption box: up to two lines, shrunk to fit by fitText() */
+.caption-text, .caption-edit {
+  width: 100%; max-height: 2.3em; overflow: hidden; text-align: center; line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.caption-text { display: flex; align-items: center; justify-content: center; }
+.caption-edit {
+  display: block; max-height: none; border: 0; background: transparent; outline: none; resize: none; padding: 0;
+  font-family: var(--hand); font-weight: 600; font-size: inherit; color: var(--ink);
+}
+.caption-edit::placeholder { color: var(--ink-3); font-weight: 500; }
 .polaroid-caption input {
   width: 100%; border: 0; background: transparent; outline: none; text-align: center;
   font-family: var(--hand); font-weight: 600; font-size: inherit; color: var(--ink);
@@ -348,15 +365,20 @@ textarea.field { resize: none; line-height: 1.4; }
 .polaroid-actions button:active { background: rgba(43,38,34,0.08); }
 .polaroid-actions button svg { width: 19px; height: 19px; }
 
-/* the round flip button that sits in the bottom-right corner of the photo,
-   and in the same spot on the back */
+/* round buttons in the photo's bottom corners: see it whole (left), flip it
+   over (right; also in the same spot on the back) */
+.full-btn {
+  position: absolute; left: 8px; bottom: 8px; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--card); color: var(--ink); border: 1.5px solid var(--ink);
+}
+.full-btn:active { transform: translateY(1px); }
+.full-btn svg { width: 19px; height: 19px; }
 .flip-btn {
   position: absolute; right: 8px; bottom: 8px; width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center; background: var(--card); color: var(--ink); border: 1.5px solid var(--ink);
 }
 .flip-btn:active { transform: translateY(1px); }
 .flip-btn svg { width: 20px; height: 20px; }
-.polaroid-photo.tappable { cursor: zoom-in; }
 .back-flip { position: absolute; right: 5.1%; bottom: 4%; width: 40px; height: 40px; }
 .back-flip .flip-btn { right: 0; bottom: 0; }
 
@@ -410,12 +432,12 @@ textarea.field { resize: none; line-height: 1.4; }
   padding: calc(12px + var(--sat)) 16px calc(16px + var(--sab)); gap: 14px; overflow: auto; animation: slide-up 0.22s ease;
 }
 @keyframes slide-up { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: var(--rule); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .sheet-head h2 { margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
 .sheet .polaroid-wrap { width: min(78vw, 360px, calc((100dvh - 260px) * 88 / 107)); margin: 0 auto; }
 .sheet-hint { margin: -4px 0 0; text-align: center; font-size: 12px; color: var(--ink-2); }
 .sheet .polaroid-wrap .polaroid { font-size: clamp(22px, 6.5vw, 32px); }
-.sheet-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: auto; }
+.sheet-actions { display: grid; gap: 10px; width: min(78vw, 360px); margin: 0 auto; }
 .progress { height: 8px; background: var(--paper-2); border: 1.5px solid var(--ink); border-radius: 2px; overflow: hidden; }
 .progress i { display: block; height: 100%; background: var(--leaf); width: var(--p, 0%); transition: width 0.2s; }
 

@@ -24,6 +24,11 @@ test('rules: photos are write-once and records keep their image', async () => {
   expect((await fetch(`${STORAGE}/${encodeURIComponent(name)}`)).status).toBe(200) // still there
 
   const trip = `rules-${Date.now()}`
+  // The walk has to exist (and be ongoing) for a photo to be added to it.
+  await fetch(`${FS}/trips?documentId=${trip}`, {
+    method: 'POST',
+    body: JSON.stringify({ fields: { name: { stringValue: 'rules' }, code: { stringValue: 'RULE' }, status: { stringValue: 'active' } } }),
+  })
   const make = await fetch(`${FS}/trips/${trip}/polaroids?documentId=p1`, {
     method: 'POST',
     body: JSON.stringify({
@@ -162,4 +167,42 @@ test('a retry after the file uploaded but the record failed writes exactly one r
   expect(await tripCount(tripId)).toBe(1)
   await expect(page.locator('.pin-photo')).toHaveCount(1)
   await expect(page.locator('.pin-photo.pending')).toHaveCount(0)
+})
+
+test('rules: a finished walk takes no new route or photos, except ones taken before it finished', async () => {
+  const id = `done-${Date.now()}`
+  const finishedAt = Date.now() - 60_000
+  const t = await fetch(`${FS}/trips?documentId=${id}`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields: { name: { stringValue: 'done' }, code: { stringValue: 'DONE' }, status: { stringValue: 'published' }, finishedAt: { integerValue: String(finishedAt) } } }),
+  })
+  expect(t.status).toBe(200)
+  const seg = await fetch(`${FS}/trips/${id}/segments`, {
+    method: 'POST',
+    body: JSON.stringify({ fields: { memberId: { stringValue: 'm1' }, points: { arrayValue: { values: [] } } } }),
+  })
+  expect(seg.status).toBe(403)
+  const photo = (takenAt: number) =>
+    fetch(`${FS}/trips/${id}/polaroids`, {
+      method: 'POST',
+      body: JSON.stringify({
+        fields: {
+          caption: { stringValue: '' },
+          description: { stringValue: '' },
+          memberId: { stringValue: 'm1' },
+          lat: { doubleValue: 43.6 },
+          lng: { doubleValue: -79.3 },
+          takenAt: { integerValue: String(takenAt) },
+        },
+      }),
+    })
+  expect((await photo(Date.now())).status).toBe(403) // taken after it finished
+  expect((await photo(finishedAt - 5_000)).status).toBe(200) // taken before, still uploading
+  // And it can't be reopened.
+  const reopen = await fetch(`${FS}/trips/${id}?updateMask.fieldPaths=status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ fields: { name: { stringValue: 'done' }, status: { stringValue: 'active' } } }),
+  })
+  expect(reopen.status).toBe(403)
 })

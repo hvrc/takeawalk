@@ -86,7 +86,7 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
 
 function TripCard({ trip, meId, onOpen }: { trip: Trip; meId: string; onOpen: () => void }) {
   const members = Object.entries(trip.members)
-  const live = members.some(([, m]) => m.tracking && Date.now() - m.lastSeenAt < 10 * 60_000)
+  const live = trip.status !== 'published' && members.some(([, m]) => m.tracking && Date.now() - m.lastSeenAt < 10 * 60_000)
   return (
     <button className="card trip-card" onClick={onOpen}>
       {trip.coverUrl ? (
@@ -101,7 +101,7 @@ function TripCard({ trip, meId, onOpen }: { trip: Trip; meId: string; onOpen: ()
       <div>
         <h3>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trip.name}</span>
-          {live ? <span className="badge live">live</span> : trip.status === 'published' ? <span className="badge">published</span> : null}
+          {live ? <span className="badge live">live</span> : trip.status === 'published' ? <span className="badge">finished</span> : null}
         </h3>
         <div className="meta">
           <span>{formatDistance(trip.distanceM)}</span>

@@ -85,3 +85,8 @@ export const IconFlip = (p: SVGProps<SVGSVGElement>) => (
     <path d="M4 20v-4h4" />
   </svg>
 )
+export const IconExpand = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+  </svg>
+)

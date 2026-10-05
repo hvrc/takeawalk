@@ -18,7 +18,8 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { getDownloadURL, ref, uploadBytesResumable, type FirebaseStorage } from 'firebase/storage'
-import { makeJoinCode, pickColor } from './identity'
+import { deviceLabel, makeJoinCode, pickColor } from './identity'
+import { haversine } from './geo'
 import { pathDistance } from './geo'
 import type { GeoPoint, Member, Polaroid, Segment, Trip, TripStatus } from './types'
 
@@ -48,6 +49,7 @@ function toTrip(id: string, data: Record<string, unknown>): Trip {
     polaroidCount: (data.polaroidCount as number) ?? 0,
     distanceM: (data.distanceM as number) ?? 0,
     coverUrl: (data.coverUrl as string | null) ?? null,
+    finishedAt: (data.finishedAt as number | null) ?? null,
   }
 }
 
@@ -93,18 +95,68 @@ export async function joinTrip(db: Firestore, tripId: string, me: Me): Promise<v
     if (!snap.exists()) throw new Error('Trip not found')
     const members = (snap.data().members ?? {}) as Record<string, Member>
     const now = Date.now()
+    const device = deviceLabel()
     if (members[me.id]) {
-      tx.update(tripRef, { [`members.${me.id}.name`]: me.name, [`members.${me.id}.lastSeenAt`]: now, updatedAt: now })
+      tx.update(tripRef, { [`members.${me.id}.name`]: me.name, [`members.${me.id}.lastSeenAt`]: now, [`members.${me.id}.device`]: device, updatedAt: now })
       return
     }
+    if (snap.data().status === 'published') throw new Error('This walk is finished, so nobody new can join.')
     const taken = Object.values(members).map((m) => m.color)
-    const member: Member = { name: me.name, color: pickColor(taken), joinedAt: now, lastSeenAt: now, lastPos: null, tracking: false }
+    const member: Member = { name: me.name, color: pickColor(taken), joinedAt: now, lastSeenAt: now, lastPos: null, tracking: false, device }
     tx.update(tripRef, { [`members.${me.id}`]: member, updatedAt: now })
   })
 }
 
+/** Records which kind of device a walker is using now (shown in "are you sure you're X?"). */
+export async function stampDevice(db: Firestore, tripId: string, memberId: string): Promise<void> {
+  await updateDoc(doc(db, 'trips', tripId), { [`members.${memberId}.device`]: deviceLabel() })
+}
+
+/** Ends a walk for everyone. Finished walks can't be resumed, joined or added to. */
+export async function finishTrip(db: Firestore, tripId: string): Promise<void> {
+  const now = Date.now()
+  await updateDoc(doc(db, 'trips', tripId), { status: 'published', finishedAt: now, updatedAt: now })
+}
+
+/** Joining from further than this from where a walk is happening isn't allowed. */
+export const MAX_JOIN_DISTANCE_M = 10_000
+
+/** Where a walk is (or ended): the most recent position anyone on it reported. */
+export function walkLocation(trip: Trip, segments: Segment[] = []): { lat: number; lng: number } | null {
+  let best: { lat: number; lng: number; t: number } | null = null
+  for (const m of Object.values(trip.members)) if (m.lastPos && (!best || m.lastPos.t > best.t)) best = m.lastPos
+  for (const s of segments) {
+    const last = s.points[s.points.length - 1]
+    if (last && (!best || last.t > best.t)) best = last
+  }
+  return best
+}
+
+/**
+ * Checks you're near enough to a walk to join it. Resolves with null if OK,
+ * or a message explaining why not.
+ */
+export async function checkJoinDistance(trip: Trip, segments: Segment[] = []): Promise<string | null> {
+  const where = walkLocation(trip, segments)
+  if (!where) return null // nobody has walked yet: nothing to compare with
+  const here = await new Promise<GeolocationPosition | null>((resolve) =>
+    navigator.geolocation
+      ? navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 12_000, maximumAge: 120_000 })
+      : resolve(null),
+  )
+  if (!here) return 'Turn on location so we can check you are near this walk, then try again.'
+  const d = haversine({ lat: here.coords.latitude, lng: here.coords.longitude }, where)
+  if (d > MAX_JOIN_DISTANCE_M) return `You're about ${Math.round(d / 1000)} km from this walk. You can only join when you're nearby.`
+  return null
+}
+
 export async function renameMember(db: Firestore, tripId: string, me: Me): Promise<void> {
   await updateDoc(doc(db, 'trips', tripId), { [`members.${me.id}.name`]: me.name })
+}
+
+export async function getTrip(db: Firestore, tripId: string): Promise<Trip | null> {
+  const s = await getDoc(doc(db, 'trips', tripId))
+  return s.exists() ? toTrip(s.id, s.data()) : null
 }
 
 export interface KnownWalker {
@@ -112,6 +164,7 @@ export interface KnownWalker {
   name: string
   color: string
   lastSeenAt: number
+  device?: string
 }
 
 /**
@@ -126,7 +179,7 @@ export async function listKnownWalkers(db: Firestore, tripId?: string): Promise<
   for (const t of trips)
     for (const [id, m] of Object.entries(t.members)) {
       const prev = byId.get(id)
-      if (!prev || m.lastSeenAt > prev.lastSeenAt) byId.set(id, { id, name: m.name, color: m.color, lastSeenAt: m.lastSeenAt ?? 0 })
+      if (!prev || m.lastSeenAt > prev.lastSeenAt) byId.set(id, { id, name: m.name, color: m.color, lastSeenAt: m.lastSeenAt ?? 0, device: m.device })
     }
   return [...byId.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt).slice(0, 12)
 }

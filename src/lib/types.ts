@@ -9,6 +9,8 @@ export interface Member {
   lastSeenAt: number
   lastPos?: { lat: number; lng: number; t: number; acc: number } | null
   tracking?: boolean
+  /** The kind of device they last used this walk from, e.g. "iPhone · Safari". */
+  device?: string
 }
 
 export interface Trip {
@@ -24,6 +26,8 @@ export interface Trip {
   polaroidCount: number
   distanceM: number
   coverUrl?: string | null
+  /** Set when the walk is finished; after that nothing can be added. */
+  finishedAt?: number | null
 }
 
 export interface GeoPoint {

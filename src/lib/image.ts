@@ -96,14 +96,30 @@ export async function renderPolaroid(opts: PolaroidRenderOptions): Promise<Blob>
     ctx.fillStyle = '#2b2622'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    let size = 92
-    ctx.font = `600 ${size}px Caveat, "Segoe Script", "Bradley Hand", cursive`
-    while (ctx.measureText(caption).width > W - PAD * 2 - 40 && size > 48) {
-      size -= 4
-      ctx.font = `600 ${size}px Caveat, "Segoe Script", "Bradley Hand", cursive`
+    // One line if it fits, otherwise two, shrinking the type until it does.
+    const maxW = W - PAD * 2 - 40
+    const font = (px: number) => `600 ${px}px Caveat, "Segoe Script", "Bradley Hand", cursive`
+    const wrap = (px: number): string[] => {
+      ctx.font = font(px)
+      if (ctx.measureText(caption).width <= maxW) return [caption]
+      const words = caption.split(/\s+/)
+      let best: string[] = [caption]
+      let bestW = Infinity
+      for (let i = 1; i < words.length; i++) {
+        const a = words.slice(0, i).join(' ')
+        const b = words.slice(i).join(' ')
+        const w = Math.max(ctx.measureText(a).width, ctx.measureText(b).width)
+        if (w < bestW) [best, bestW] = [[a, b], w]
+      }
+      return best
     }
+    let size = 92
+    let lines = wrap(size)
+    while (size > 40 && lines.some((l) => ctx.measureText(l).width > maxW)) lines = wrap((size -= 4))
     const bottomBand = H - (TOP + PHOTO)
-    ctx.fillText(caption, W / 2, TOP + PHOTO + bottomBand / 2 + 4, W - PAD * 2 - 24)
+    const lineH = size * 1.05
+    const mid = TOP + PHOTO + bottomBand / 2 + 4
+    lines.forEach((l, i) => ctx.fillText(l, W / 2, mid + (i - (lines.length - 1) / 2) * lineH, maxW))
   }
 
   return canvasToBlob(canvas, 'image/jpeg', 0.92)

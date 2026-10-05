@@ -30,6 +30,27 @@ export function getDeviceId(): string {
   return id
 }
 
+/**
+ * A plain description of this device, e.g. "iPhone · Safari (home screen)".
+ * Not a fingerprint: just enough for "are you sure you're X?" to make sense.
+ */
+export function deviceLabel(): string {
+  const ua = navigator.userAgent
+  const os = /iPhone/.test(ua) ? 'iPhone'
+    : /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad'
+    : /Android/.test(ua) ? (/Pixel/.test(ua) ? 'Pixel' : 'Android phone')
+    : /Macintosh/.test(ua) ? 'Mac'
+    : /Windows/.test(ua) ? 'Windows PC'
+    : /Linux/.test(ua) ? 'Linux' : 'device'
+  const browser = /EdgA?\//.test(ua) ? 'Edge'
+    : /SamsungBrowser/.test(ua) ? 'Samsung Internet'
+    : /Firefox|FxiOS/.test(ua) ? 'Firefox'
+    : /CriOS|Chrome/.test(ua) ? 'Chrome'
+    : /Safari/.test(ua) ? 'Safari' : 'browser'
+  const installed = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone
+  return `${os} · ${browser}${installed ? ' (home screen)' : ''}`
+}
+
 /** Take back an identity this person used before (another browser, or wiped storage). */
 export function adoptIdentity(id: string, name: string) {
   localStorage.setItem(DEVICE_KEY, id)

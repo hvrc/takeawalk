@@ -24,9 +24,11 @@ interface Props {
   fitKey: number
   /** Show photos as polaroids on the map; otherwise as small pins that keep the route clear. */
   showPolaroids: boolean
+  /** Where to open: a finished walk at its start, an ongoing one where it is now. */
+  focus: 'start' | 'current' | null
 }
 
-export default function MapView({ segments, members, polaroids, meId, myFix, tracking, follow, onUserMove, onPolaroidClick, fitKey, showPolaroids }: Props) {
+export default function MapView({ segments, members, polaroids, meId, myFix, tracking, follow, onUserMove, onPolaroidClick, fitKey, showPolaroids, focus }: Props) {
   const el = useRef<HTMLDivElement>(null)
   // Covers the blank map until the style and first tiles have rendered.
   const [ready, setReady] = useState(false)
@@ -276,7 +278,31 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     map.easeTo({ center: [myFix.lng, myFix.lat], zoom: z < 15 ? 16.5 : z, duration: 600 })
   }, [myFix, follow])
 
-  // Fit to everything (initial load and on request)
+  // Opening view: zoom to where the walk started (finished) or where it is now (ongoing).
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !focus || fitKey !== 0 || didInitialFit.current) return
+    let at: { lat: number; lng: number } | null = null
+    if (focus === 'start') {
+      const first = [...segments].filter((s) => s.points.length).sort((a, b) => a.startedAt - b.startedAt)[0]
+      at = first?.points[0] ?? [...polaroids].sort((a, b) => a.takenAt - b.takenAt)[0] ?? null
+    } else {
+      let best: { lat: number; lng: number; t: number } | null = myFix
+      for (const m of Object.values(members)) if (m.lastPos && (!best || m.lastPos.t > best.t)) best = m.lastPos
+      for (const s of segments) {
+        const last = s.points[s.points.length - 1]
+        if (last && (!best || last.t > best.t)) best = last
+      }
+      at = best
+    }
+    if (!at) return
+    const target = at
+    didInitialFit.current = true
+    whenReady(() => map.jumpTo({ center: [target.lng, target.lat], zoom: 16.5 }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, segments.length > 0, polaroids.length > 0, myFix !== null])
+
+  // Fit to everything (on request, or initially if there's no focus point)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -299,7 +325,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
       ]
       map.fitBounds(bounds, { padding: { top: 130, bottom: 220, left: 50, right: 50 }, maxZoom: 17.5, duration: fitKey ? 700 : 0 })
     }
-    if (fitKey === 0 && didInitialFit.current) return
+    if (fitKey === 0 && (didInitialFit.current || focus)) return
     whenReady(run)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey, segments.length > 0, polaroids.length > 0, myFix !== null])

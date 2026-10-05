@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { getServices, type Services } from './firebase'
 import { ServicesContext } from './services'
 import { adoptIdentity, getName, requestPersistentStorage, setName as persistName } from './lib/identity'
-import { listKnownWalkers, type KnownWalker } from './lib/tripApi'
+import { checkJoinDistance, getTrip, listKnownWalkers, type KnownWalker } from './lib/tripApi'
 import NamePrompt from './components/NamePrompt'
 import Home from './pages/Home'
 import Trip from './pages/Trip'
@@ -64,10 +64,20 @@ export default function App() {
     return listKnownWalkers(services.db, m?.[1])
   }, [services])
 
-  const adopt = (w: KnownWalker) => {
+  // Taking an identity back on a walk link: only when you're near that walk.
+  const adopt = async (w: KnownWalker): Promise<string | null> => {
+    const m = location.pathname.match(/^\/t\/([^/]+)/)
+    if (m && services) {
+      const trip = await getTrip(services.db, m[1])
+      if (trip && trip.status !== 'published') {
+        const tooFar = await checkJoinDistance(trip)
+        if (tooFar) return tooFar
+      }
+    }
     adoptIdentity(w.id, w.name)
     requestPersistentStorage()
     setNameState(w.name)
+    return null
   }
 
   if (error) {

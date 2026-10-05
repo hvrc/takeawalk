@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { useNavigate, useParams } from 'react-router-dom'
 import { useServices } from '../services'
 import { useTrip } from '../hooks/useTrip'
-import { getDeviceId, MEMBER_COLORS } from '../lib/identity'
+import { deviceLabel, getDeviceId, MEMBER_COLORS } from '../lib/identity'
 import { Tracker, type TrackerState } from '../lib/tracker'
 import {
   appendPoints,
   endSegment,
+  checkJoinDistance,
+  finishTrip,
   joinTrip,
   newPolaroidId,
   renameTrip,
-  setTripStatus,
+  stampDevice,
   startSegment,
   updatePolaroidText,
 } from '../lib/tripApi'
@@ -143,6 +145,7 @@ export default function Trip({ name }: { name: string }) {
   useEffect(() => {
     if (autoResumed.current || !trip || !isMember) return
     autoResumed.current = true
+    if (trip.status === 'published') return
     try {
       const raw = localStorage.getItem(SESSION_KEY)
       if (!raw) return
@@ -187,17 +190,29 @@ export default function Trip({ name }: { name: string }) {
     [segments, me.id],
   )
   const totalDistance = useMemo(() => segments.reduce((d, s) => d + pathDistance(s.points), 0), [segments])
-  const walkingCount = trip ? Object.values(trip.members).filter((m) => m.tracking && Date.now() - m.lastSeenAt < 10 * 60_000).length : 0
+  const isWalking = (m: { tracking?: boolean; lastSeenAt: number }) =>
+    trip?.status !== 'published' && !!m.tracking && Date.now() - m.lastSeenAt < 10 * 60_000
+  const walkingCount = trip ? Object.values(trip.members).filter(isWalking).length : 0
   const viewer = viewerId ? allPolaroids.find((p) => p.id === viewerId) ?? null : null
   const pendingProgress = viewer?.pending ? pending.find((p) => p.item.id === viewer.id) : null
 
   // ---- actions -------------------------------------------------------------
+  const [joining, setJoining] = useState(false)
   const join = async () => {
+    if (!trip || joining) return
+    setJoining(true)
     try {
+      const tooFar = await checkJoinDistance(trip, segments)
+      if (tooFar) {
+        showToast(tooFar, 6000)
+        return
+      }
       await joinTrip(db, tripId, me)
       showToast(`You're in. Your colour is on the map.`)
     } catch (e) {
       showToast((e as Error).message)
+    } finally {
+      setJoining(false)
     }
   }
 
@@ -211,9 +226,9 @@ export default function Trip({ name }: { name: string }) {
     void trackerRef.current?.resume()
   }
   const finish = async () => {
-    if (!confirm('Finish this walk and publish it? You can always resume it later.')) return
+    if (!confirm('Finish this walk for everyone? Once it is finished nobody can add to it.')) return
     await trackerRef.current?.stop()
-    await setTripStatus(db, tripId, 'published')
+    await finishTrip(db, tripId)
     setFollow(false)
     setFitKey((k) => k + 1)
     showToast('Published. Nice walk.')
@@ -300,6 +315,32 @@ export default function Trip({ name }: { name: string }) {
     await updatePolaroidText(db, tripId, viewer.id, caption, description)
   }
 
+  // Finished (maybe by someone else): stop tracking here too.
+  const finished = trip?.status === 'published'
+  useEffect(() => {
+    if (!finished) return
+    const t = trackerRef.current
+    if (t && t.state !== 'idle') void t.stop()
+    localStorage.removeItem(SESSION_KEY)
+  }, [finished])
+
+  // Remember which kind of device this walker is on (for "are you sure you're X?").
+  const myDevice = useMemo(() => deviceLabel(), [])
+  useEffect(() => {
+    if (member && member.device !== myDevice) void stampDevice(db, tripId, me.id).catch(() => undefined)
+  }, [db, tripId, me.id, member, myDevice])
+
+  // Keep the map buttons just above the bottom panel, whatever its height.
+  const barRef = useRef<HTMLDivElement>(null)
+  const tripRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const bar = barRef.current
+    if (!bar) return
+    const ro = new ResizeObserver(() => tripRef.current?.style.setProperty('--bar-h', `${bar.offsetHeight}px`))
+    ro.observe(bar)
+    return () => ro.disconnect()
+  })
+
   // ---- render --------------------------------------------------------------
   if (error) {
     return (
@@ -329,7 +370,7 @@ export default function Trip({ name }: { name: string }) {
   const gpsAcc = myFix?.acc ?? member?.lastPos?.acc
 
   return (
-    <div className="trip">
+    <div className="trip" ref={tripRef}>
       <MapView
         segments={segments}
         members={trip?.members ?? {}}
@@ -342,6 +383,7 @@ export default function Trip({ name }: { name: string }) {
         onPolaroidClick={setViewerId}
         fitKey={fitKey}
         showPolaroids={showPolaroids}
+        focus={trip ? (finished ? 'start' : 'current') : null}
       />
 
       <div className="topbar">
@@ -352,7 +394,7 @@ export default function Trip({ name }: { name: string }) {
           <h1>{trip?.name ?? 'Loading…'}</h1>
           <div className="sub">
             <span>
-              {walkingCount > 0 ? `${walkingCount} walking now` : trip?.status === 'published' ? 'published' : 'not walking'}
+              {walkingCount > 0 ? `${walkingCount} walking now` : finished ? 'finished' : 'not walking'}
               {' · '}
               {allPolaroids.length} polaroid{allPolaroids.length === 1 ? '' : 's'}
             </span>
@@ -369,7 +411,7 @@ export default function Trip({ name }: { name: string }) {
             <span key={id} className={`chip ${id === me.id ? 'me' : ''}`}>
               <span className="dot" style={{ background: m.color }} />
               {id === me.id ? 'you' : m.name}
-              {m.tracking && Date.now() - m.lastSeenAt < 10 * 60_000 ? <span className="walking" /> : null}
+              {isWalking(m) ? <span className="walking" /> : null}
             </span>
           ))}
         </div>
@@ -400,16 +442,34 @@ export default function Trip({ name }: { name: string }) {
         <IconLocate />
       </button>
 
-      <div className="bottombar">
+      <div className="bottombar" ref={barRef}>
         {!trip ? (
           <div className="status-line">Loading walk…</div>
+        ) : finished ? (
+          <>
+            <div className="stats">
+              <div className="stat">
+                <b>{formatDistance(totalDistance)}</b>
+                <span>walked</span>
+              </div>
+              <div className="stat">
+                <b>{allPolaroids.length}</b>
+                <span>polaroids</span>
+              </div>
+              <div className="stat right">
+                <b>{Object.keys(trip.members).length}</b>
+                <span>walkers</span>
+              </div>
+            </div>
+            <div className="finished-line">This walk is finished. Tap a pin to see its polaroids.</div>
+          </>
         ) : !isMember ? (
           <div className="join-card">
             <p>
               You're looking at <b>{trip.name}</b>. Join to walk it, draw your own line and pin polaroids.
             </p>
-            <button className="btn btn-accent" onClick={join}>
-              Join as {me.name}
+            <button className={`btn btn-accent ${joining ? 'busy' : ''}`} onClick={join} disabled={joining}>
+              {joining ? <span className="spinner sm" aria-label="Checking where you are" /> : `Join as ${me.name}`}
             </button>
           </div>
         ) : (
@@ -435,7 +495,7 @@ export default function Trip({ name }: { name: string }) {
             <div className="controls">
               {trackerState === 'idle' ? (
                 <button className="btn btn-accent" onClick={start}>
-                  <IconPlay style={{ width: 18, height: 18 }} /> {hasMySegments || trip.status === 'published' ? 'Resume' : 'Start'}
+                  <IconPlay style={{ width: 18, height: 18 }} /> {hasMySegments ? 'Resume' : 'Start'}
                 </button>
               ) : trackerState === 'starting' ? (
                 <button className="btn" disabled>
@@ -472,9 +532,7 @@ export default function Trip({ name }: { name: string }) {
                     ? 'Paused. Your line picks up fresh when you resume.'
                     : trackerState === 'autopaused'
                       ? 'Paused while the app was in the background.'
-                      : trip.status === 'published'
-                        ? 'Published. Resume to add more to this walk; what you already walked stays as is.'
-                        : 'Tap Start to begin drawing your line. Photos pin where you are.'}
+                      : 'Tap Start to begin drawing your line. Photos pin where you are.'}
             </div>
           </>
         )}

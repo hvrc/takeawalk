@@ -29,10 +29,40 @@ test('a returning walker on a fresh browser can take their identity back', async
   await b.goto(url)
   await expect(b.getByText('been here before? tap your name')).toBeVisible()
   await b.locator('.known-list').getByRole('button', { name: 'Harsh' }).click()
+  // Double-check before handing over the identity.
+  await expect(b.getByText("Are you sure you're Harsh?")).toBeVisible()
+  await b.screenshot({ path: 'test-results/shots/11a-are-you-sure.png' })
+  await b.getByRole('button', { name: "Yes, I'm Harsh" }).click()
   await expect(b.locator('.trip-title h1')).toHaveText(walk)
   // Recognised as the same walker: no "Join as" card, own controls are there.
   await expect(b.getByRole('button', { name: /Join as/ })).toHaveCount(0)
   await expect(b.locator('.members-row .chip')).toHaveCount(1)
   expect(await b.evaluate(() => localStorage.getItem('taw.deviceId'))).toBe(myId)
   await b.screenshot({ path: 'test-results/shots/11-identity-restored.png' })
+})
+
+test('nobody can join a walk from far away', async ({ browser }) => {
+  const near = { geolocation: { latitude: 43.6532, longitude: -79.3832, accuracy: 8 }, permissions: ['geolocation'] }
+  const a = await (await browser.newContext(near)).newPage()
+  await a.goto('/')
+  await a.getByPlaceholder('your name').fill('Here')
+  await a.getByRole('button', { name: 'Get ready' }).click()
+  const walk = `near ${Date.now().toString(36).slice(-4)}`
+  await a.getByPlaceholder(/walk$/).fill(walk)
+  await a.getByRole('button', { name: 'Start' }).click()
+  await a.getByRole('button', { name: /^Start$/ }).click()
+  await expect(a.locator('.status-line')).toContainText('Walking', { timeout: 20_000 })
+  await a.waitForTimeout(9000) // first route flush, so the walk has a location
+  const url = a.url()
+
+  // Montreal is ~500 km away.
+  const far = await (await browser.newContext({ geolocation: { latitude: 45.5019, longitude: -73.5674, accuracy: 10 }, permissions: ['geolocation'] })).newPage()
+  await far.goto('/')
+  await far.getByPlaceholder('your name').fill('Faraway')
+  await far.getByRole('button', { name: 'Get ready' }).click()
+  await far.goto(url)
+  await far.getByRole('button', { name: 'Join as Faraway' }).click()
+  await expect(far.locator('.toast')).toContainText('km from this walk')
+  await expect(far.getByRole('button', { name: 'Join as Faraway' })).toBeVisible() // still not a member
+  await expect(a.locator('.members-row .chip')).toHaveCount(1)
 })
