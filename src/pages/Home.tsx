@@ -57,8 +57,8 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
 
   return (
     <div className="home">
+      <PlaceMap />
       <header className="home-banner">
-        <PlaceMap />
         <div className="home-header">
           <h1 className="wordmark with-walker">
             <Walker variant="dotted" color="var(--leaf)" className="wordmark-walker" />
@@ -95,7 +95,7 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
         ) : null}
       </section>
 
-      <div className="section-title">All walks</div>
+      <div className="section-title"><span>All walks</span></div>
       {trips === null ? (
         <div className="empty">Loading walks…</div>
       ) : trips.length === 0 ? (
