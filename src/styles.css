@@ -542,17 +542,12 @@ textarea.field { resize: none; line-height: 1.4; }
 /* a small dotted walker standing on top of the "k" of "take" */
 .wordmark.with-walker { white-space: nowrap; }
 .k-perch { position: relative; display: inline-block; }
-.wordmark-walker { position: absolute; left: 50%; bottom: 0.62em; height: 0.62em; width: auto; transform: translateX(-40%); }
+/* in front of the k: same height as the letters, feet on the baseline, drawn over it */
+.wordmark-walker { position: absolute; z-index: 1; left: 50%; bottom: 0.03em; height: 0.78em; width: auto; transform: translateX(-30%); }
 .start-card h2 { display: flex; align-items: flex-end; gap: 10px; }
 /* the stroller walks the rest of the heading row and back */
 .stroll-track { position: relative; flex: 1; min-width: 0; height: 26px; }
 .stroller { position: absolute; left: 0; bottom: 0; line-height: 0; will-change: transform; transform-origin: 50% 50%; }
-.dust {
-  position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; pointer-events: none;
-  background: var(--ink); opacity: 0.35; transform: scale(var(--s, 1));
-  animation: dust 0.9s ease-out forwards;
-}
-@keyframes dust { to { opacity: 0; transform: translate(var(--dx, -6px), -7px) scale(calc(var(--s, 1) * 1.9)); } }
 
 /* walk screen: a walker above the map buttons, walking only while you are */
 .map-walker {
