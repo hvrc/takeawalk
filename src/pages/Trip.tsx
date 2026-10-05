@@ -25,7 +25,7 @@ import type { GeoPoint, Polaroid as PolaroidT } from '../lib/types'
 import MapView from '../components/MapView'
 import PolaroidViewer from '../components/PolaroidViewer'
 import CaptureSheet from '../components/CaptureSheet'
-import { IconBack, IconCamera, IconChevronDown, IconFlag, IconInfo, IconLocate, IconPause, IconPhoto, IconPin, IconPlay, IconShare } from '../components/icons'
+import { IconBack, IconCamera, IconChevronDown, IconChevronUp, IconFlag, IconLocate, IconPause, IconPhoto, IconPin, IconPlay, IconShare } from '../components/icons'
 
 const SESSION_KEY = 'taw.session'
 const RESUME_WINDOW_MS = 30 * 60_000
@@ -446,7 +446,7 @@ export default function Trip({ name }: { name: string }) {
         </div>
       ) : null}
 
-      <Walker className="map-walker" variant="dotted" color="var(--leaf)" size={46} walking={tracking} looking={!tracking} />
+      <Walker className="map-walker" variant="dotted" color="var(--ink)" size={46} walking={tracking} looking={!tracking} />
 
       <button
         className="btn-icon map-toggle"
@@ -500,17 +500,17 @@ export default function Trip({ name }: { name: string }) {
             <button className="dock-btn shutter-sm" onClick={onShutter} aria-label="Take a polaroid">
               <IconCamera />
             </button>
-            <button className="dock-btn danger" onClick={finish} aria-label="Finish">
-              <IconFlag />
-            </button>
             <button className="dock-btn" onClick={togglePolaroids} aria-label={showPolaroids ? 'Show photos as pins' : 'Show photos as polaroids'}>
               {showPolaroids ? <IconPin /> : <IconPhoto />}
+            </button>
+            <button className="dock-btn danger" onClick={finish} aria-label="Finish">
+              <IconFlag />
             </button>
             <button className="dock-btn" onClick={recenter} aria-label="Recenter">
               <IconLocate />
             </button>
             <button className="dock-btn" onClick={() => setCompactPref(false)} aria-label="Show details">
-              <IconInfo />
+              <IconChevronUp />
             </button>
           </div>
         ) : !isMember ? (

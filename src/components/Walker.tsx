@@ -34,6 +34,17 @@ const POSES = {
     torso: 'M12 7 L12 17.6',
     lines: ['M12 17.6 L12.9 23 L13.2 28.6', 'M12 17.6 L11.1 23 L10.8 28.6', 'M12 9.8 L14.3 13.6 L14.8 17.4', 'M12 9.8 L9.7 13.6 L9.2 17.4'],
   },
+  // Waving: the front arm up, in two positions.
+  wave1: {
+    head: [12, 4],
+    torso: 'M12 7 L12 17.6',
+    lines: ['M12 17.6 L12.9 23 L13.2 28.6', 'M12 17.6 L11.1 23 L10.8 28.6', 'M12 9.8 L15.2 7 L16.4 2.8', 'M12 9.8 L9.7 13.6 L9.2 17.4'],
+  },
+  wave2: {
+    head: [12, 4],
+    torso: 'M12 7 L12 17.6',
+    lines: ['M12 17.6 L12.9 23 L13.2 28.6', 'M12 17.6 L11.1 23 L10.8 28.6', 'M12 9.8 L15.8 8 L19 5', 'M12 9.8 L9.7 13.6 L9.2 17.4'],
+  },
   stride: {
     head: [12.2, 4],
     torso: 'M12.2 7 L12 17.2',
@@ -91,7 +102,11 @@ export default function Walker({ variant = 'solid', color, size = 24, walking = 
       aria-hidden={title ? undefined : true}
     >
       {looking && !walking ? (
-        <Figure variant={variant} pose="stand" />
+        <>
+          <Figure variant={variant} pose="stand" />
+          <Figure variant={variant} pose="wave1" />
+          <Figure variant={variant} pose="wave2" />
+        </>
       ) : (
         <>
           <Figure variant={variant} pose="a" />

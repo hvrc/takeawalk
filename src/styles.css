@@ -24,7 +24,7 @@
   --ok: #3f9a4c;
   --shadow: none;
   --shadow-sm: none;
-  --radius: 6px;
+  --radius: 26px; /* very round, like current iOS */
   --rule: 1.5px solid var(--ink);
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -60,7 +60,7 @@ img { display: block; }
 /* ---------- generic ---------- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 48px; padding: 0 20px; border-radius: var(--radius);
+  min-height: 48px; padding: 0 20px; border-radius: 999px;
   background: var(--leaf); color: var(--accent-ink); border: var(--rule);
   font-weight: 800; font-size: 16px; text-transform: uppercase; letter-spacing: 0.08em;
   box-shadow: var(--shadow-sm); transition: transform 0.06s ease, box-shadow 0.06s ease, opacity 0.2s;
@@ -90,7 +90,7 @@ img { display: block; }
 .btn-icon svg { width: 20px; height: 20px; }
 
 .field {
-  width: 100%; min-height: 48px; padding: 12px 14px; border-radius: 4px;
+  width: 100%; min-height: 48px; padding: 12px 14px; border-radius: 16px;
   border: 1.5px solid var(--ink); background: #fcf8ee; outline: none;
   font-size: 16px; /* 16px stops iOS zooming on focus */
 }
@@ -100,7 +100,7 @@ textarea.field { resize: none; line-height: 1.4; }
 
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 6px;
-  border-radius: 3px; background: var(--card); border: 1.5px solid var(--ink);
+  border-radius: 999px; background: var(--card); border: 1.5px solid var(--ink);
   font-size: 13px; font-weight: 600;
 }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); flex: none; box-shadow: 0 0 0 1.5px var(--ink); }
@@ -137,7 +137,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .finished-line { font-size: 13px; color: var(--ink-2); text-align: center; padding: 0 4px; }
 .splash label { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; font-stretch: 75%; }
 .error-box {
-  max-width: 420px; padding: 16px; border-radius: 4px; background: #f6dccf; color: var(--maroon); border: var(--rule);
+  max-width: 420px; padding: 16px; border-radius: 20px; background: #f6dccf; color: var(--maroon); border: var(--rule);
   font-size: 14px; line-height: 1.5; text-align: left; word-break: break-word;
 }
 
@@ -150,11 +150,11 @@ textarea.field { resize: none; line-height: 1.4; }
 .home-header { border-bottom: var(--rule); }
 .home-header .wordmark { font-size: 36px; }
 .name-pill {
-  display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 4px;
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 999px;
   background: var(--card); border: var(--rule); box-shadow: var(--shadow-sm); font-weight: 700; font-size: 14px;
 }
 .name-pill .avatar {
-  width: 28px; height: 28px; border-radius: 2px; background: var(--brick); color: var(--accent-ink);
+  width: 28px; height: 28px; border-radius: 50%; background: var(--brick); color: var(--accent-ink);
   display: grid; place-items: center; font-size: 13px; font-weight: 800;
 }
 
@@ -195,7 +195,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .trip-card .members { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .trip-card .members .chip { padding: 1px 7px 1px 4px; font-size: 12px; background: var(--paper); }
 .badge {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 2px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 999px;
   background: var(--ochre); color: var(--ink); border: 1.5px solid var(--ink); flex: none;
 }
 .badge.live { background: var(--leaf); color: var(--accent-ink); display: inline-flex; align-items: center; gap: 5px; }
@@ -230,7 +230,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .trip-title .sub { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
 .code-chip {
   font-family: var(--font); font-weight: 800; letter-spacing: 0.18em; background: var(--ink); color: var(--card);
-  padding: 1px 6px 1px 8px; border-radius: 2px;
+  padding: 1px 6px 1px 8px; border-radius: 999px;
 }
 .code-chip::before { content: 'No. '; letter-spacing: 0.04em; font-weight: 600; opacity: 0.75; }
 .members-row { position: absolute; top: calc(74px + var(--sat)); left: 10px; right: 10px; z-index: 5; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
@@ -267,7 +267,7 @@ textarea.field { resize: none; line-height: 1.4; }
 
 .toast {
   position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(200px + var(--sab)); z-index: 20;
-  background: var(--ink); color: var(--card); padding: 10px 16px; border-radius: 4px; font-size: 14px; font-weight: 600;
+  background: var(--ink); color: var(--card); padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
   max-width: calc(100% - 40px); text-align: center; animation: toast-in 0.2s ease;
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -297,7 +297,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .head-marker .label {
   position: absolute; left: 50%; top: -26px; transform: translateX(-50%); white-space: nowrap;
   background: var(--card); color: var(--ink); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 1px 7px; border-radius: 2px; border: 1.5px solid var(--ink);
+  padding: 1px 7px; border-radius: 999px; border: 1.5px solid var(--ink);
 }
 
 .pin-polaroid { cursor: pointer; transform-origin: 50% 50%; transition: transform 0.15s; }
@@ -419,7 +419,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .polaroid-back .foot b { color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
 .polaroid-back .foot .dot { width: 8px; height: 8px; }
 .polaroid-back textarea {
-  background: transparent; border: 1.5px dashed var(--ink-3); color: var(--ink); border-radius: 4px; outline: none;
+  background: transparent; border: 1.5px dashed var(--ink-3); color: var(--ink); border-radius: 14px; outline: none;
   padding: 10px; font-family: var(--hand); font-size: clamp(20px, 6vw, 26px); line-height: 1.25; width: 100%; flex: 1; min-height: 0; resize: none;
 }
 .polaroid-back textarea:focus { border-color: var(--ink); }
@@ -467,7 +467,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .admin-confirm { display: grid; gap: 8px; }
 .admin-confirm p { margin: 0; font-size: 14px; }
 .admin-confirm .row { justify-content: flex-end; }
-.admin-msg { padding: 10px 12px; border: var(--rule); border-radius: 4px; background: var(--card); font-size: 14px; }
+.admin-msg { padding: 10px 12px; border: var(--rule); border-radius: 18px; background: var(--card); font-size: 14px; }
 
 /* ---------- walking people (crossing-sign figures) ---------- */
 .walker { display: inline-block; overflow: visible; flex: none; }
@@ -496,37 +496,63 @@ textarea.field { resize: none; line-height: 1.4; }
 
 /* the home banner: a still map of somewhere nice behind the title */
 /* the place map is the whole home page's background; everything scrolls over it */
-.home { position: relative; }
-.home > *:not(.place-map) { position: relative; z-index: 1; }
+.home { position: relative; pointer-events: none; }
+.home > *:not(.place-map) { position: relative; z-index: 1; pointer-events: auto; }
+.home > .place-map { pointer-events: auto; }
+/* let touches on the gaps between cards reach the map */
+.home .trip-list, .home .home-banner { pointer-events: none; }
+.home .trip-list > *, .home .home-banner > * { pointer-events: auto; }
+.home .home-header { pointer-events: none; }
+.home .home-header > * { pointer-events: auto; }
 .home-banner { margin-bottom: 18px; }
 .home-banner .wordmark-walker { filter: drop-shadow(0 0 1.2px var(--paper)) drop-shadow(0 0 1.2px var(--paper)) drop-shadow(0 0 1px var(--paper)); }
 .home-banner .home-header { position: relative; z-index: 1; border-bottom: 0; margin-bottom: 0; }
 .home-banner .wordmark { text-shadow: 0 0 3px var(--paper), 0 0 6px var(--paper), 0 0 10px var(--paper); }
-.place-map { position: fixed; inset: 0; z-index: 0; margin: 0; background: var(--paper); pointer-events: none; }
+.place-map { position: fixed; inset: 0; z-index: 0; margin: 0; background: var(--paper); }
 .place-map-canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s ease; }
 .place-map.ready .place-map-canvas { opacity: 1; }
 .place-map figcaption {
   position: absolute; right: 10px; bottom: calc(10px + var(--sab)); text-align: right; display: grid; gap: 1px; padding: 5px 9px;
-  background: var(--card); border: 1.5px solid var(--ink); border-radius: 3px; line-height: 1.15;
+  background: var(--card); border: 1.5px solid var(--ink); border-radius: 14px; line-height: 1.15;
 }
 .place-map figcaption b { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-stretch: 75%; }
 .place-map figcaption span { font-size: 11px; color: var(--ink-2); }
 
-/* standing and looking around: face one way, then the other, with pauses */
-.walker.looking { animation: look-around 4.5s step-end infinite; transform-origin: 50% 50%; }
+/* standing about: look one way, then the other, and every so often wave */
+.walker.looking { animation: look-around 9s step-end infinite; transform-origin: 50% 50%; }
+.walker.looking .pose-wave1, .walker.looking .pose-wave2 { opacity: 0; }
+.walker.looking .pose-stand { animation: wave-stand 9s step-end infinite; }
+.walker.looking .pose-wave1 { animation: wave-1 9s step-end infinite; }
+.walker.looking .pose-wave2 { animation: wave-2 9s step-end infinite; }
 @keyframes look-around {
-  0%, 38% { transform: scaleX(1); }
-  45%, 88% { transform: scaleX(-1); }
-  95%, 100% { transform: scaleX(1); }
+  0% { transform: scaleX(1); }
+  25% { transform: scaleX(-1); }
+  50% { transform: scaleX(1); }
+}
+@keyframes wave-stand { 0% { opacity: 1; } 72% { opacity: 0; } 92% { opacity: 1; } }
+@keyframes wave-1 { 0% { opacity: 0; } 72% { opacity: 1; } 76% { opacity: 0; } 80% { opacity: 1; } 84% { opacity: 0; } 88% { opacity: 1; } 92% { opacity: 0; } }
+@keyframes wave-2 { 0% { opacity: 0; } 76% { opacity: 1; } 80% { opacity: 0; } 84% { opacity: 1; } 88% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .walker.looking .pose-stand { animation: none; opacity: 1; }
+  .walker.looking .pose-wave1, .walker.looking .pose-wave2 { animation: none; opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .walker.looking { animation: none; } }
 
 /* home masthead: a dotted walker stepping into the "t" */
-/* the walker is exactly as tall as the "t", standing on the same baseline,
-   and tucked a little into it (the figure's feet sit 3.4/32 above its box bottom) */
+/* a small dotted walker standing on top of the "k" of "take" */
 .wordmark.with-walker { white-space: nowrap; }
-.wordmark-walker { height: 0.78em; width: auto; vertical-align: -0.083em; margin-right: -0.1em; }
-.start-card h2 { display: flex; align-items: flex-end; gap: 8px; }
+.k-perch { position: relative; display: inline-block; }
+.wordmark-walker { position: absolute; left: 50%; bottom: 0.62em; height: 0.62em; width: auto; transform: translateX(-40%); }
+.start-card h2 { display: flex; align-items: flex-end; gap: 10px; }
+/* the stroller walks the rest of the heading row and back */
+.stroll-track { position: relative; flex: 1; min-width: 0; height: 26px; }
+.stroller { position: absolute; left: 0; bottom: 0; line-height: 0; will-change: transform; transform-origin: 50% 50%; }
+.dust {
+  position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; pointer-events: none;
+  background: var(--ink); opacity: 0.35; transform: scale(var(--s, 1));
+  animation: dust 0.9s ease-out forwards;
+}
+@keyframes dust { to { opacity: 0; transform: translate(var(--dx, -6px), -7px) scale(calc(var(--s, 1) * 1.9)); } }
 
 /* walk screen: a walker above the map buttons, walking only while you are */
 .map-walker {
@@ -569,4 +595,4 @@ textarea.field { resize: none; line-height: 1.4; }
 .home .section-title span, .home .empty { background: var(--card); }
 .home .empty { border: var(--rule); border-radius: var(--radius); }
 .home .section-title { background: transparent; }
-.home .section-title > span { padding: 4px 10px; border: 1.5px solid var(--ink); border-radius: 3px; }
+.home .section-title > span { padding: 4px 10px; border: 1.5px solid var(--ink); border-radius: 999px; }

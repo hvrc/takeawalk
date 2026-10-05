@@ -68,9 +68,13 @@ export default function PlaceMap() {
       style: inkStyle(),
       center: [place.lng, place.lat],
       zoom: place.zoom,
-      interactive: false,
+      // Drag to pan, pinch or double-tap to zoom. The wheel still scrolls the page.
+      scrollZoom: false,
+      dragRotate: false,
+      pitchWithRotate: false,
       attributionControl: false,
     })
+    map.touchZoomRotate.disableRotation()
     registerPatterns(map)
     // No street or place names: the title sits on top of this map.
     map.on('style.load', () => {
