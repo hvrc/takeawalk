@@ -57,18 +57,19 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
 
   return (
     <div className="home">
-      <header className="home-header">
-        <h1 className="wordmark with-walker">
-          <Walker variant="dotted" color="var(--leaf)" size={48} className="wordmark-walker" />
-          take a walk
-        </h1>
-        <button className="name-pill" onClick={rename} aria-label="Change your name">
-          <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>
-          {name}
-        </button>
+      <header className="home-banner">
+        <PlaceMap />
+        <div className="home-header">
+          <h1 className="wordmark with-walker">
+            <Walker variant="dotted" color="var(--leaf)" className="wordmark-walker" />
+            take a walk
+          </h1>
+          <button className="name-pill" onClick={rename} aria-label="Change your name">
+            <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>
+            {name}
+          </button>
+        </div>
       </header>
-
-      <PlaceMap />
 
       <section className="card start-card">
         <h2>

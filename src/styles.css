@@ -494,15 +494,24 @@ textarea.field { resize: none; line-height: 1.4; }
 .empty .walker-parade { margin-bottom: 12px; }
 .empty p { margin: 0; }
 
-/* a still map of somewhere nice, at the top of home */
-.place-map { position: relative; margin: 0 0 14px; height: 170px; border: var(--rule); border-radius: var(--radius); overflow: hidden; background: var(--paper-2); }
+/* the home banner: a still map of somewhere nice behind the title */
+.home-banner {
+  /* full screen width, even inside the centred home column */
+  position: relative; width: 100vw; margin: calc(-16px - var(--sat)) 0 18px calc(50% - 50vw);
+  padding: calc(16px + var(--sat)) max(16px, calc(50vw - 304px)) 0; height: calc(190px + var(--sat));
+  border-bottom: var(--rule); overflow: hidden;
+}
+.home-banner .wordmark-walker { filter: drop-shadow(0 0 1.2px var(--paper)) drop-shadow(0 0 1.2px var(--paper)) drop-shadow(0 0 1px var(--paper)); }
+.home-banner .home-header { position: relative; z-index: 1; border-bottom: 0; margin-bottom: 0; }
+.home-banner .wordmark { text-shadow: 0 0 3px var(--paper), 0 0 6px var(--paper), 0 0 10px var(--paper); }
+.place-map { position: absolute; inset: 0; margin: 0; background: var(--paper-2); }
 .place-map-canvas { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s ease; }
 .place-map.ready .place-map-canvas { opacity: 1; }
 .place-map figcaption {
-  position: absolute; left: 10px; bottom: 10px; display: grid; gap: 1px; padding: 5px 9px;
+  position: absolute; right: max(10px, calc(50vw - 310px)); bottom: 10px; text-align: right; display: grid; gap: 1px; padding: 5px 9px;
   background: var(--card); border: 1.5px solid var(--ink); border-radius: 3px; line-height: 1.15;
 }
-.place-map figcaption b { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-stretch: 75%; }
+.place-map figcaption b { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-stretch: 75%; }
 .place-map figcaption span { font-size: 11px; color: var(--ink-2); }
 
 /* standing and looking around: face one way, then the other, with pauses */
@@ -515,8 +524,10 @@ textarea.field { resize: none; line-height: 1.4; }
 @media (prefers-reduced-motion: reduce) { .walker.looking { animation: none; } }
 
 /* home masthead: a dotted walker stepping into the "t" */
-.wordmark.with-walker { position: relative; padding-left: 30px; }
-.wordmark-walker { position: absolute; left: 4px; bottom: 0.06em; }
+/* the walker is exactly as tall as the "t", standing on the same baseline,
+   and tucked a little into it (the figure's feet sit 3.4/32 above its box bottom) */
+.wordmark.with-walker { white-space: nowrap; }
+.wordmark-walker { height: 0.78em; width: auto; vertical-align: -0.083em; margin-right: -0.1em; }
 .start-card h2 { display: flex; align-items: flex-end; gap: 8px; }
 
 /* walk screen: a walker above the map buttons, walking only while you are */
@@ -528,3 +539,30 @@ textarea.field { resize: none; line-height: 1.4; }
 @media (min-width: 720px) {
   .map-walker { right: auto; left: calc(50% + 260px + 13px); bottom: calc(116px + var(--sab)); }
 }
+
+/* full panel: a small button to shrink it to the dock */
+.bottombar .minimize { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); width: 36px; height: 36px; min-height: 36px; }
+.bottombar .minimize svg { width: 18px; height: 18px; }
+/* compact: just a row of round buttons */
+.bottombar.compact { left: 50%; right: auto; transform: translateX(-50%); width: auto; padding: 8px; border-radius: 999px; }
+.dock { display: flex; gap: 8px; align-items: center; }
+.dock-btn {
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--card); color: var(--ink); border: 1.5px solid var(--ink);
+}
+.dock-btn:active { transform: translateY(1px); }
+.dock-btn:disabled { opacity: 0.6; }
+.dock-btn svg { width: 20px; height: 20px; }
+.dock-btn.accent { background: var(--brick); color: var(--accent-ink); }
+.dock-btn.danger { color: var(--brick); }
+.dock-btn.shutter-sm { width: 54px; height: 54px; background: var(--ochre); border-width: 2px; }
+/* the floating map buttons live in the dock while it's showing */
+.trip:has(.bottombar.compact) .recenter,
+.trip:has(.bottombar.compact) .map-toggle { display: none; }
+.trip:has(.bottombar.compact) .map-walker { bottom: calc(var(--bar-h, 70px) + 18px + var(--sab)); }
+@media (min-width: 720px) {
+  .bottombar.compact { width: auto; }
+  .trip:has(.bottombar.compact) .map-walker { left: auto; right: calc(50% - 23px); }
+}
+/* chunkier dots for the small title walker so it holds up at any size */
+.wordmark-walker path, .wordmark-walker circle { stroke-width: 2.3px; stroke-dasharray: 0 2.9px; }

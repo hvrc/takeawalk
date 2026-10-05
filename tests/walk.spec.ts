@@ -182,6 +182,20 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.getByRole('button', { name: 'Resume' }).click()
   await expect(a.page.locator('.status-line')).toContainText('Walking', { timeout: 20_000 })
 
+  // --- shrink the panel to round buttons, pause/resume from there, and bring it back
+  await a.page.getByRole('button', { name: 'Make this smaller' }).click()
+  await expect(a.page.locator('.dock')).toBeVisible()
+  await expect(a.page.locator('.stats')).toHaveCount(0)
+  await expect(a.page.locator('.recenter')).toBeHidden()
+  await a.page.screenshot({ path: `${SHOTS}/08b-compact.png` })
+  await a.page.locator('.dock').getByRole('button', { name: 'Pause' }).click()
+  await expect(a.page.locator('.map-walker')).toHaveClass(/looking/)
+  await a.page.locator('.dock').getByRole('button', { name: 'Resume' }).click()
+  await expect(a.page.locator('.dock').getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 20_000 })
+  await expect(a.page.locator('.map-walker')).toHaveClass(/walking/)
+  await a.page.getByRole('button', { name: 'Show details' }).click()
+  await expect(a.page.locator('.stats')).toBeVisible()
+
   // --- B finishes: the walk is finished for everyone, and stays finished
   b.page.once('dialog', (d) => d.accept())
   await b.page.getByRole('button', { name: 'Finish' }).click()

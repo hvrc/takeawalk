@@ -25,7 +25,7 @@ import type { GeoPoint, Polaroid as PolaroidT } from '../lib/types'
 import MapView from '../components/MapView'
 import PolaroidViewer from '../components/PolaroidViewer'
 import CaptureSheet from '../components/CaptureSheet'
-import { IconBack, IconCamera, IconFlag, IconLocate, IconPause, IconPhoto, IconPin, IconPlay, IconShare } from '../components/icons'
+import { IconBack, IconCamera, IconChevronDown, IconFlag, IconInfo, IconLocate, IconPause, IconPhoto, IconPin, IconPlay, IconShare } from '../components/icons'
 
 const SESSION_KEY = 'taw.session'
 const RESUME_WINDOW_MS = 30 * 60_000
@@ -63,6 +63,22 @@ export default function Trip({ name }: { name: string }) {
       return false
     }
   })
+  // The bottom panel can shrink to a row of round buttons. Remembered per phone.
+  const [compact, setCompact] = useState(() => {
+    try {
+      return localStorage.getItem('taw.compact') === '1'
+    } catch {
+      return false
+    }
+  })
+  const setCompactPref = (v: boolean) => {
+    setCompact(v)
+    try {
+      localStorage.setItem('taw.compact', v ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
   const togglePolaroids = () =>
     setShowPolaroids((v) => {
       try {
@@ -369,6 +385,18 @@ export default function Trip({ name }: { name: string }) {
   const hasMySegments = segments.some((s) => s.memberId === me.id)
   const elapsed = trackerRef.current?.elapsedMs ?? 0
   const gpsAcc = myFix?.acc ?? member?.lastPos?.acc
+  // Compact dock only where there are walking controls.
+  const dock = compact && !!trip && !finished && isMember
+
+  // Toggle between "show everything" and "follow me".
+  const recenter = () => {
+    if (follow || !myFix) {
+      setFollow(false)
+      setFitKey((k) => k + 1)
+    } else {
+      setFollow(true)
+    }
+  }
 
   return (
     <div className="trip" ref={tripRef}>
@@ -429,23 +457,11 @@ export default function Trip({ name }: { name: string }) {
         {showPolaroids ? <IconPin /> : <IconPhoto />}
       </button>
 
-      <button
-        className="btn-icon recenter"
-        aria-label="Recenter"
-        onClick={() => {
-          // Toggle between "show everything" and "follow me".
-          if (follow || !myFix) {
-            setFollow(false)
-            setFitKey((k) => k + 1)
-          } else {
-            setFollow(true)
-          }
-        }}
-      >
+      <button className="btn-icon recenter" aria-label="Recenter" onClick={recenter}>
         <IconLocate />
       </button>
 
-      <div className="bottombar" ref={barRef}>
+      <div className={`bottombar ${dock ? 'compact' : ''}`} ref={barRef}>
         {!trip ? (
           <div className="status-line">Loading walk…</div>
         ) : finished ? (
@@ -466,6 +482,37 @@ export default function Trip({ name }: { name: string }) {
             </div>
             <div className="finished-line">This walk is finished. Tap a pin to see its polaroids.</div>
           </>
+        ) : dock ? (
+          <div className="dock">
+            {trackerState === 'tracking' ? (
+              <button className="dock-btn" onClick={pause} aria-label="Pause">
+                <IconPause />
+              </button>
+            ) : trackerState === 'starting' ? (
+              <button className="dock-btn" disabled aria-label="Locating">
+                <span className="spinner sm" />
+              </button>
+            ) : (
+              <button className="dock-btn accent" onClick={trackerState === 'idle' ? start : resume} aria-label={trackerState === 'idle' && !hasMySegments ? 'Start' : 'Resume'}>
+                <IconPlay />
+              </button>
+            )}
+            <button className="dock-btn shutter-sm" onClick={onShutter} aria-label="Take a polaroid">
+              <IconCamera />
+            </button>
+            <button className="dock-btn danger" onClick={finish} aria-label="Finish">
+              <IconFlag />
+            </button>
+            <button className="dock-btn" onClick={togglePolaroids} aria-label={showPolaroids ? 'Show photos as pins' : 'Show photos as polaroids'}>
+              {showPolaroids ? <IconPin /> : <IconPhoto />}
+            </button>
+            <button className="dock-btn" onClick={recenter} aria-label="Recenter">
+              <IconLocate />
+            </button>
+            <button className="dock-btn" onClick={() => setCompactPref(false)} aria-label="Show details">
+              <IconInfo />
+            </button>
+          </div>
         ) : !isMember ? (
           <div className="join-card">
             <p>
@@ -477,6 +524,9 @@ export default function Trip({ name }: { name: string }) {
           </div>
         ) : (
           <>
+            <button className="btn-icon minimize" onClick={() => setCompactPref(true)} aria-label="Make this smaller">
+              <IconChevronDown />
+            </button>
             <div className="stats">
               <div className="stat">
                 <b>{formatDistance(myDistance)}</b>
