@@ -39,6 +39,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
   }
   const headMarkers = useRef<Map<string, Marker>>(new Map())
   const pinMarkers = useRef<Map<string, Marker>>(new Map())
+  const layoutRef = useRef<() => void>(() => undefined)
   const didInitialFit = useRef(false)
   const clickRef = useRef(onPolaroidClick)
   clickRef.current = onPolaroidClick
@@ -86,6 +87,11 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     const userMove = (e: { originalEvent?: unknown }) => {
       if (e.originalEvent) moveRef.current()
     }
+    // Pins shrink as you zoom out; groups are recomputed once a zoom settles.
+    const setPinScale = () => el.current?.style.setProperty('--pin-scale', String(pinScale(map.getZoom())))
+    setPinScale()
+    map.on('zoom', setPinScale)
+    map.on('zoomend', () => layoutRef.current())
     map.on('dragstart', userMove)
     map.on('zoomstart', userMove)
     mapRef.current = map
@@ -160,58 +166,106 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     pinMarkers.current.clear()
   }, [showPolaroids])
 
-  // Photo markers: small pins by default, or little polaroids.
+  // Photo markers. Pins (default) shrink as you zoom out, and below
+  // GROUP_BELOW_ZOOM pins that would overlap merge into one numbered group;
+  // tapping a group zooms in until it splits. Polaroid mode shows every photo.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const wanted = new Set<string>()
-    polaroids.forEach((p, i) => {
-      wanted.add(p.id)
-      let marker = pinMarkers.current.get(p.id)
-      if (!marker && !showPolaroids) {
-        const node = document.createElement('div')
-        node.className = 'pin-photo'
-        node.setAttribute('role', 'button')
-        node.setAttribute('aria-label', p.caption ? `Photo: ${p.caption}` : 'Photo')
-        node.innerHTML = `<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M12 30.5C7 23.6 2 18.3 2 12a10 10 0 0120 0c0 6.3-5 11.6-10 18.5z"/><circle cx="12" cy="12" r="3.6"/></svg>`
-        node.addEventListener('click', (e) => {
-          e.stopPropagation()
-          clickRef.current(p.id)
-        })
-        marker = new Marker({ element: node, anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(map)
-        pinMarkers.current.set(p.id, marker)
+    const layout = () => {
+      type Spot = { key: string; lng: number; lat: number; items: Polaroid[] }
+      const spots: Spot[] = []
+      if (showPolaroids || map.getZoom() >= GROUP_BELOW_ZOOM) {
+        polaroids.forEach((p) => spots.push({ key: `p:${p.id}`, lng: p.lng, lat: p.lat, items: [p] }))
+      } else {
+        // Greedy screen-space grouping: each photo joins the first group whose seed is within reach.
+        const groups: Array<{ x: number; y: number; items: Polaroid[] }> = []
+        for (const p of polaroids) {
+          const pt = map.project([p.lng, p.lat])
+          const g = groups.find((g) => Math.hypot(g.x - pt.x, g.y - pt.y) < GROUP_RADIUS_PX)
+          if (g) g.items.push(p)
+          else groups.push({ x: pt.x, y: pt.y, items: [p] })
+        }
+        for (const g of groups) {
+          if (g.items.length === 1) {
+            const p = g.items[0]
+            spots.push({ key: `p:${p.id}`, lng: p.lng, lat: p.lat, items: [p] })
+          } else {
+            const lng = g.items.reduce((a, p) => a + p.lng, 0) / g.items.length
+            const lat = g.items.reduce((a, p) => a + p.lat, 0) / g.items.length
+            spots.push({ key: `g:${g.items.map((p) => p.id).sort().join(',')}`, lng, lat, items: g.items })
+          }
+        }
       }
-      if (!marker) {
-        const node = document.createElement('div')
-        node.className = 'pin-polaroid'
-        node.style.width = '56px'
-        const angle = ((hash(p.id) % 17) - 8) * 1.1
-        node.style.transform = `rotate(${angle}deg)`
-        node.innerHTML = `
-          <div class="polaroid thumb"><div class="polaroid-photo"><img alt="" draggable="false"/></div><div class="polaroid-caption"></div></div>
-          <div class="pin-tack"></div>`
-        node.addEventListener('click', (e) => {
-          e.stopPropagation()
-          clickRef.current(p.id)
-        })
-        marker = new Marker({ element: node, anchor: 'bottom', offset: [0, 6] }).setLngLat([p.lng, p.lat]).addTo(map)
-        pinMarkers.current.set(p.id, marker)
-      }
-      const node = marker.getElement()
-      node.style.zIndex = String(i + 1)
-      node.style.setProperty('--c', p.color)
-      node.classList.toggle('pending', !!p.pending)
-      const img = node.querySelector('img') as HTMLImageElement | null
-      if (img && img.getAttribute('src') !== p.imageUrl) img.src = p.imageUrl
-      const cap = node.querySelector('.polaroid-caption')
-      if (cap) cap.textContent = p.caption.length > 14 ? p.caption.slice(0, 13) + '…' : p.caption
-    })
-    for (const [id, marker] of pinMarkers.current) {
-      if (!wanted.has(id)) {
-        marker.remove()
-        pinMarkers.current.delete(id)
+
+      const wanted = new Set<string>()
+      spots.forEach((spot, i) => {
+        wanted.add(spot.key)
+        let marker = pinMarkers.current.get(spot.key)
+        const p = spot.items[0]
+        if (!marker) {
+          const node = document.createElement('div')
+          if (spot.items.length > 1) {
+            node.className = 'pin-group'
+            node.setAttribute('role', 'button')
+            node.setAttribute('aria-label', `${spot.items.length} photos here`)
+            node.innerHTML = `<span>${spot.items.length}</span>`
+            const items = spot.items
+            node.addEventListener('click', (e) => {
+              e.stopPropagation()
+              const b = boundsOf(items.map((q) => ({ lat: q.lat, lng: q.lng, t: 0, acc: 0 })))
+              if (!b) return
+              map.fitBounds([[b.minLng, b.minLat], [b.maxLng, b.maxLat]], {
+                padding: { top: 140, bottom: 240, left: 60, right: 60 },
+                maxZoom: GROUP_BELOW_ZOOM + 1,
+                duration: 600,
+              })
+            })
+            marker = new Marker({ element: node, anchor: 'center' }).setLngLat([spot.lng, spot.lat]).addTo(map)
+          } else if (!showPolaroids) {
+            node.className = 'pin-photo'
+            node.setAttribute('role', 'button')
+            node.setAttribute('aria-label', p.caption ? `Photo: ${p.caption}` : 'Photo')
+            node.innerHTML = `<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M12 30.5C7 23.6 2 18.3 2 12a10 10 0 0120 0c0 6.3-5 11.6-10 18.5z"/><circle cx="12" cy="12" r="3.6"/></svg>`
+            node.addEventListener('click', (e) => {
+              e.stopPropagation()
+              clickRef.current(p.id)
+            })
+            marker = new Marker({ element: node, anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(map)
+          } else {
+            node.className = 'pin-polaroid'
+            node.style.width = '56px'
+            const angle = ((hash(p.id) % 17) - 8) * 1.1
+            node.style.transform = `rotate(${angle}deg)`
+            node.innerHTML = `
+              <div class="polaroid thumb"><div class="polaroid-photo"><img alt="" draggable="false"/></div><div class="polaroid-caption"></div></div>
+              <div class="pin-tack"></div>`
+            node.addEventListener('click', (e) => {
+              e.stopPropagation()
+              clickRef.current(p.id)
+            })
+            marker = new Marker({ element: node, anchor: 'bottom', offset: [0, 6] }).setLngLat([p.lng, p.lat]).addTo(map)
+          }
+          pinMarkers.current.set(spot.key, marker)
+        }
+        const node = marker.getElement()
+        node.style.zIndex = String(spot.items.length > 1 ? 1000 + i : i + 1)
+        node.style.setProperty('--c', dominantColor(spot.items))
+        node.classList.toggle('pending', spot.items.some((q) => q.pending))
+        const img = node.querySelector('img') as HTMLImageElement | null
+        if (img && img.getAttribute('src') !== p.imageUrl) img.src = p.imageUrl
+        const cap = node.querySelector('.polaroid-caption')
+        if (cap) cap.textContent = p.caption.length > 14 ? p.caption.slice(0, 13) + '…' : p.caption
+      })
+      for (const [key, marker] of pinMarkers.current) {
+        if (!wanted.has(key)) {
+          marker.remove()
+          pinMarkers.current.delete(key)
+        }
       }
     }
+    layoutRef.current = layout
+    layout()
   }, [polaroids, showPolaroids])
 
   // Follow my position while tracking
@@ -259,6 +313,21 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
       </div>
     </>
   )
+}
+
+const GROUP_BELOW_ZOOM = 15.5
+const GROUP_RADIUS_PX = 40
+
+/** 1 at street level (zoom 16+), down to 0.5 by zoom 12. */
+function pinScale(zoom: number): number {
+  return Math.min(1, Math.max(0.5, 0.5 + ((zoom - 12) / 4) * 0.5))
+}
+
+/** The colour most of these photos share (whoever took most of them). */
+function dominantColor(items: Polaroid[]): string {
+  const n = new Map<string, number>()
+  for (const p of items) n.set(p.color, (n.get(p.color) ?? 0) + 1)
+  return [...n.entries()].sort((a, b) => b[1] - a[1])[0][0]
 }
 
 function hash(s: string): number {

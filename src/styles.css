@@ -269,11 +269,20 @@ textarea.field { resize: none; line-height: 1.4; }
 /* ---------- markers ---------- */
 /* photo pin: a small ink-outlined teardrop in the photographer's colour */
 .pin-photo { width: 34px; height: 40px; display: flex; align-items: flex-end; justify-content: center; cursor: pointer; }
-.pin-photo svg { width: 22px; height: 30px; overflow: visible; transition: transform 0.12s; transform-origin: 50% 100%; }
+.pin-photo svg { width: 22px; height: 30px; overflow: visible; transition: transform 0.12s; transform-origin: 50% 100%; scale: var(--pin-scale, 1); }
 .pin-photo path { fill: var(--c, var(--accent)); stroke: var(--ink); stroke-width: 1.6; }
 .pin-photo circle { fill: var(--card); stroke: var(--ink); stroke-width: 1.2; }
 .pin-photo:active svg { transform: scale(1.15); }
 .pin-photo.pending path { fill-opacity: 0.45; stroke-dasharray: 3 2; }
+/* several photos close together when zoomed out: one numbered badge */
+.pin-group {
+  min-width: 30px; height: 30px; padding: 0 7px; border-radius: 15px; cursor: pointer;
+  display: grid; place-items: center; background: var(--c, var(--accent)); color: var(--card);
+  border: 1.6px solid var(--ink); box-shadow: 0 0 0 2.5px var(--card);
+  font-weight: 800; font-size: 14px; font-stretch: 80%; font-variant-numeric: tabular-nums;
+  scale: calc(0.75 + var(--pin-scale, 1) * 0.25);
+}
+.pin-group:active { transform: scale(1.08); }
 .head-marker { position: relative; width: 22px; height: 22px; }
 .head-marker .ring { position: absolute; inset: 0; border-radius: 50%; background: var(--c); opacity: 0.25; }
 .head-marker.live .ring { animation: ping 1.6s infinite; }
