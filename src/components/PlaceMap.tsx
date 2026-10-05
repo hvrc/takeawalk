@@ -99,12 +99,8 @@ export default function PlaceMap() {
   }, [])
 
   return (
-    <figure className={`place-map ${ready ? 'ready' : ''}`}>
+    <figure className={`place-map ${ready ? 'ready' : ''}`} aria-label={`Map of ${place.name}, ${place.where}`}>
       <div ref={el} className="place-map-canvas" />
-      <figcaption>
-        <b>{place.name}</b>
-        <span>{place.where}</span>
-      </figcaption>
     </figure>
   )
 }
