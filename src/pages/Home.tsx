@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useServices } from '../services'
 import { createTrip, subscribeTrips } from '../lib/tripApi'
@@ -6,7 +6,8 @@ import { getDeviceId } from '../lib/identity'
 import { formatDistance, formatWhen } from '../lib/geo'
 import type { Trip } from '../lib/types'
 import Polaroid from '../components/Polaroid'
-import { IconPhoto } from '../components/icons'
+import { IconClose } from '../components/icons'
+import Walker, { WalkerParade, walkerFor } from '../components/Walker'
 
 export default function Home({ name, onRename }: { name: string; onRename: (n: string) => void }) {
   const { db } = useServices()
@@ -19,16 +20,33 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
 
   useEffect(() => subscribeTrips(db, setTrips, (e) => setMsg(e.message)), [db])
 
+  // Creating a walk waits for the server so the walk really exists before you
+  // start. If that's slow, a pop-up says so and can be closed (you stay here;
+  // if the walk does get created it simply shows up in the list).
+  const createRun = useRef(0)
+  const [showCreating, setShowCreating] = useState(false)
   const onCreate = async (e: FormEvent) => {
     e.preventDefault()
+    const run = ++createRun.current
     setBusy('create')
+    const slow = setTimeout(() => run === createRun.current && setShowCreating(true), 500)
     try {
       const trip = await createTrip(db, walkName || defaultWalkName(), me)
-      nav(`/t/${trip.id}`)
+      if (run === createRun.current) nav(`/t/${trip.id}`)
     } catch (err) {
-      setMsg((err as Error).message)
-      setBusy(null)
+      if (run === createRun.current) setMsg((err as Error).message)
+    } finally {
+      clearTimeout(slow)
+      if (run === createRun.current) {
+        setBusy(null)
+        setShowCreating(false)
+      }
     }
+  }
+  const cancelCreate = () => {
+    createRun.current++
+    setBusy(null)
+    setShowCreating(false)
   }
 
   const rename = () => {
@@ -72,7 +90,10 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
       {trips === null ? (
         <div className="empty">Loading walks…</div>
       ) : trips.length === 0 ? (
-        <div className="empty">No walks yet. Yours could be the first.</div>
+        <div className="empty">
+          <WalkerParade size={34} />
+          <p>No walks yet. Yours could be the first.</p>
+        </div>
       ) : (
         <div className="trip-list">
           {trips.map((t) => (
@@ -80,6 +101,18 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
           ))}
         </div>
       )}
+      {showCreating ? (
+        <div className="modal-backdrop" onClick={cancelCreate}>
+          <div className="modal card" role="dialog" aria-label="Creating your walk" onClick={(e) => e.stopPropagation()}>
+            <button className="btn-icon modal-close" onClick={cancelCreate} aria-label="Stop waiting">
+              <IconClose />
+            </button>
+            <Walker variant="stride" color="var(--leaf)" size={56} walking />
+            <h2>Creating your walk…</h2>
+            <p className="muted">This can take a moment on a slow connection.</p>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -95,7 +128,7 @@ function TripCard({ trip, meId, onOpen }: { trip: Trip; meId: string; onOpen: ()
         </div>
       ) : (
         <div className="cover-empty">
-          <IconPhoto />
+          <Walker {...walkerFor(trip.id)} size={40} />
         </div>
       )}
       <div>

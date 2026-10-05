@@ -52,8 +52,16 @@ test('nobody can join a walk from far away', async ({ browser }) => {
   await a.getByRole('button', { name: 'Start' }).click()
   await a.getByRole('button', { name: /^Start$/ }).click()
   await expect(a.locator('.status-line')).toContainText('Walking', { timeout: 20_000 })
-  await a.waitForTimeout(9000) // first route flush, so the walk has a location
   const url = a.url()
+  // Wait until the walk has a recorded location (the first route flush).
+  const tripId = url.split('/t/')[1]
+  await expect
+    .poll(async () => {
+      const r = await fetch(`http://127.0.0.1:8080/v1/projects/demo-takeawalk/databases/(default)/documents/trips/${tripId}`, { headers: { Authorization: 'Bearer owner' } })
+      const members = (await r.json()).fields?.members?.mapValue?.fields ?? {}
+      return Object.values(members).some((m) => (m as { mapValue: { fields: Record<string, { mapValue?: unknown }> } }).mapValue.fields.lastPos?.mapValue)
+    }, { timeout: 30_000 })
+    .toBe(true)
 
   // Montreal is ~500 km away.
   const far = await (await browser.newContext({ geolocation: { latitude: 45.5019, longitude: -73.5674, accuracy: 10 }, permissions: ['geolocation'] })).newPage()
@@ -62,7 +70,7 @@ test('nobody can join a walk from far away', async ({ browser }) => {
   await far.getByRole('button', { name: 'Get ready' }).click()
   await far.goto(url)
   await far.getByRole('button', { name: 'Join as Faraway' }).click()
-  await expect(far.locator('.toast')).toContainText('km from this walk')
+  await expect(far.locator('.toast')).toContainText('km from this walk', { timeout: 20_000 })
   await expect(far.getByRole('button', { name: 'Join as Faraway' })).toBeVisible() // still not a member
   await expect(a.locator('.members-row .chip')).toHaveCount(1)
 })

@@ -1,11 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#f1ead8"/>
-  <g transform="rotate(-6 256 256)">
-    <rect x="136" y="96" width="240" height="288" rx="6" fill="#fbf6ea" stroke="#2b2622" stroke-width="3"/>
-    <rect x="156" y="116" width="200" height="200" fill="#7f9ba0"/>
-    <path d="M156 276 L216 206 L266 256 L296 226 L356 296 L356 316 L156 316 Z" fill="#2f6f3a"/>
-    <circle cx="316" cy="160" r="22" fill="#e0ad3e"/>
-    <path d="M168 352 q40 -18 80 0 t80 0" stroke="#2b2622" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <!-- take a walk: a green walking-pedestrian signal on white -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  <g transform="translate(256 256) scale(11.2) translate(-11.4 -16.1)" fill="none" stroke="#2e9a4e" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 8.6 L11 17"/>
+    <path d="M11 17 L13.6 21.6 L14.6 28"/>
+    <path d="M11 17 L9 22 L6.4 27.2"/>
+    <path d="M12 9.6 L15 13 L16.4 16.6"/>
+    <path d="M12 9.6 L9.6 13.4 L8.8 16.8"/>
+    <circle cx="12.5" cy="4.2" r="2.7" fill="#2e9a4e" stroke="none"/>
   </g>
-  <path d="M96 420 C150 390 180 440 230 410 S320 380 400 430" stroke="#b8432f" stroke-width="18" fill="none" stroke-linecap="round"/>
 </svg>

@@ -6,6 +6,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import type { GeoPoint, Member, Polaroid, Segment } from '../lib/types'
 import { boundsOf } from '../lib/geo'
 import { inkStyle, PAPER, registerPatterns } from '../lib/mapStyle'
+import Walker from './Walker'
 
 setWorkerUrl(maplibreWorkerUrl)
 
@@ -334,7 +335,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     <>
       <div ref={el} className="map" />
       <div className={`map-loading ${ready ? 'done' : ''}`} aria-hidden={ready}>
-        <span className="spinner" />
+        <Walker variant="dotted" color="var(--leaf)" size={44} walking />
         <span>Loading map…</span>
       </div>
     </>

@@ -54,15 +54,10 @@ function toTrip(id: string, data: Record<string, unknown>): Trip {
 }
 
 export async function createTrip(db: Firestore, name: string, me: Me): Promise<Trip> {
-  let code = makeJoinCode()
-  // Avoid handing out a code that is still live on another trip.
-  for (let i = 0; i < 5; i++) {
-    const existing = await getDocs(query(tripsCol(db), where('code', '==', code), limit(1)))
-    if (existing.empty) break
-    code = makeJoinCode()
-  }
+  // Walks are joined from the list or a link now; the code is kept only as a label.
+  const code = makeJoinCode()
   const now = Date.now()
-  const member: Member = { name: me.name, color: pickColor([]), joinedAt: now, lastSeenAt: now, lastPos: null, tracking: false }
+  const member: Member = { name: me.name, color: pickColor([]), joinedAt: now, lastSeenAt: now, lastPos: null, tracking: false, device: deviceLabel() }
   const data = {
     name: name.trim() || 'Untitled walk',
     code,

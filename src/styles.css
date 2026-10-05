@@ -449,6 +449,11 @@ textarea.field { resize: none; line-height: 1.4; }
   .bottombar { left: 50%; right: auto; transform: translateX(-50%); width: 520px; }
   .topbar { left: 50%; right: auto; transform: translateX(-50%); width: 520px; }
   .members-row { left: 50%; right: auto; transform: translateX(-50%); width: 520px; }
+  /* map buttons sit just to the right of the bottom panel, bottoms aligned */
+  .recenter, .map-toggle { right: auto; left: calc(50% + 260px + 10px); }
+  .recenter { bottom: calc(10px + var(--sab)); }
+  .map-toggle { bottom: calc(62px + var(--sab)); }
+  .map .maplibregl-ctrl-bottom-right { bottom: auto; top: 10px; right: 10px; }
 }
 
 /* ---------- admin ---------- */
@@ -463,3 +468,28 @@ textarea.field { resize: none; line-height: 1.4; }
 .admin-confirm p { margin: 0; font-size: 14px; }
 .admin-confirm .row { justify-content: flex-end; }
 .admin-msg { padding: 10px 12px; border: var(--rule); border-radius: 4px; background: var(--card); font-size: 14px; }
+
+/* ---------- walking people (crossing-sign figures) ---------- */
+.walker { display: inline-block; overflow: visible; flex: none; }
+.walker.walking .pose-b { opacity: 0; }
+.walker.walking .pose-a { animation: stride-a 0.9s steps(1) infinite; animation-delay: inherit; }
+.walker.walking .pose-b { animation: stride-b 0.9s steps(1) infinite; animation-delay: inherit; }
+@keyframes stride-a { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes stride-b { 0% { opacity: 0; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .walker.walking .pose-a { animation: none; opacity: 1; }
+  .walker.walking .pose-b { animation: none; opacity: 0; }
+}
+.walker-parade { display: flex; justify-content: center; align-items: flex-end; gap: 10px; }
+
+/* pop-up (creating a walk) */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 70; background: rgba(43, 38, 34, 0.45);
+  display: grid; place-items: center; padding: 24px; animation: fade 0.15s ease;
+}
+.modal { position: relative; width: min(100%, 340px); display: grid; justify-items: center; gap: 8px; padding: 28px 20px 22px; text-align: center; }
+.modal h2 { margin: 6px 0 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; font-stretch: 75%; }
+.modal p { margin: 0; font-size: 13px; }
+.modal-close { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; min-height: 36px; }
+.empty .walker-parade { margin-bottom: 12px; }
+.empty p { margin: 0; }

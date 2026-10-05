@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { KnownWalker } from '../lib/tripApi'
 import { deviceLabel } from '../lib/identity'
+import { WalkerParade } from './Walker'
 
 interface Props {
   onDone: (name: string) => void
@@ -37,17 +38,18 @@ export default function NamePrompt({ onDone, loadKnown, onAdopt, initial = '' }:
   }
   return (
     <div className="splash">
+      <WalkerParade size={40} />
       <h1 className="wordmark">
         take a walk <span className="nowrap">(with a friend)</span>
         <small>and pin some pictures along the way</small>
       </h1>
       {confirming ? null : (
       <form onSubmit={submit}>
-        <label className="muted tiny center">What should we call you?</label>
         <input
           className="field center"
           maxLength={24}
           placeholder="your name"
+          aria-label="Your name"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           autoComplete="nickname"
