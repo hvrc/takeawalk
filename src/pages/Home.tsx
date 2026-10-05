@@ -6,8 +6,8 @@ import { getDeviceId } from '../lib/identity'
 import { formatDistance, formatWhen } from '../lib/geo'
 import type { Trip } from '../lib/types'
 import Polaroid from '../components/Polaroid'
-import { IconClose } from '../components/icons'
-import Walker, { WalkerParade, walkerFor } from '../components/Walker'
+import { IconClose, IconPhoto } from '../components/icons'
+import Walker, { WalkerParade } from '../components/Walker'
 
 export default function Home({ name, onRename }: { name: string; onRename: (n: string) => void }) {
   const { db } = useServices()
@@ -128,7 +128,7 @@ function TripCard({ trip, meId, onOpen }: { trip: Trip; meId: string; onOpen: ()
         </div>
       ) : (
         <div className="cover-empty">
-          <Walker {...walkerFor(trip.id)} size={40} />
+          <IconPhoto />
         </div>
       )}
       <div>
