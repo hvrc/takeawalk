@@ -53,9 +53,6 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.getByPlaceholder(/walk$/).fill(TRIP)
   await a.page.getByRole('button', { name: 'Start' }).click()
   await expect(a.page.locator('.trip-title h1')).toHaveText(TRIP)
-  const code = (await a.page.locator('.code-chip').textContent())!.trim()
-  expect(code).toMatch(/^[A-Z0-9]{4}$/)
-  console.log('join code', code)
 
   await a.page.getByRole('button', { name: /^Start$/ }).click()
   await expect(a.page.locator('.status-line')).toContainText('Walking', { timeout: 20_000 })
@@ -77,14 +74,15 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   // Upload finishes and the pending pin becomes the real one.
   await expect(a.page.locator('.pin-photo.pending')).toHaveCount(0, { timeout: 30_000 })
 
-  // --- B joins with the code
+  // --- B finds the walk in the list and joins it
   const b = await newPhone(browser, 'Friend')
   const cardB = b.page.locator('.trip-card', { hasText: TRIP })
   await expect(cardB).toHaveCount(1)
   await expect(cardB.locator('.badge.live')).toBeVisible()
   await b.page.screenshot({ path: `${SHOTS}/04-home-with-trip.png` })
-  await b.page.getByPlaceholder('CODE').fill(code)
-  await b.page.getByRole('button', { name: 'Join' }).click()
+  await expect(b.page.getByPlaceholder('CODE')).toHaveCount(0) // no join-by-code any more
+  await cardB.click()
+  await b.page.getByRole('button', { name: 'Join as Friend' }).click()
   await expect(b.page.locator('.trip-title h1')).toHaveText(TRIP)
   await expect(b.page.locator('.members-row .chip')).toHaveCount(2)
   await expect(a.page.locator('.members-row .chip')).toHaveCount(2)

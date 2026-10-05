@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useServices } from '../services'
-import { createTrip, findTripByCode, joinTrip, subscribeTrips } from '../lib/tripApi'
-import { getDeviceId, normalizeCode } from '../lib/identity'
+import { createTrip, subscribeTrips } from '../lib/tripApi'
+import { getDeviceId } from '../lib/identity'
 import { formatDistance, formatWhen } from '../lib/geo'
 import type { Trip } from '../lib/types'
 import Polaroid from '../components/Polaroid'
@@ -13,8 +13,7 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
   const nav = useNavigate()
   const [trips, setTrips] = useState<Trip[] | null>(null)
   const [walkName, setWalkName] = useState('')
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState<'create' | 'join' | null>(null)
+  const [busy, setBusy] = useState<'create' | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const me = { id: getDeviceId(), name }
 
@@ -25,26 +24,6 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
     setBusy('create')
     try {
       const trip = await createTrip(db, walkName || defaultWalkName(), me)
-      nav(`/t/${trip.id}`)
-    } catch (err) {
-      setMsg((err as Error).message)
-      setBusy(null)
-    }
-  }
-
-  const onJoin = async (e: FormEvent) => {
-    e.preventDefault()
-    const c = normalizeCode(code)
-    if (c.length < 4) return
-    setBusy('join')
-    try {
-      const trip = await findTripByCode(db, c)
-      if (!trip) {
-        setMsg(`No walk with code ${c}`)
-        setBusy(null)
-        return
-      }
-      await joinTrip(db, trip.id, me)
       nav(`/t/${trip.id}`)
     } catch (err) {
       setMsg((err as Error).message)
@@ -80,23 +59,6 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
           />
           <button className={`btn btn-accent ${busy === 'create' ? 'busy' : ''}`} type="submit" disabled={busy !== null}>
             {busy === 'create' ? <span className="spinner sm" aria-label="Starting" /> : 'Start'}
-          </button>
-        </form>
-        <div className="or">or join a friend</div>
-        <form className="row" onSubmit={onJoin}>
-          <input
-            className="field code-field"
-            placeholder="CODE"
-            value={code}
-            maxLength={6}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="go"
-          />
-          <button className={`btn ${busy === 'join' ? 'busy' : ''}`} type="submit" disabled={busy !== null || normalizeCode(code).length < 4}>
-            {busy === 'join' ? <span className="spinner sm" aria-label="Joining" /> : 'Join'}
           </button>
         </form>
         {msg ? (
@@ -154,9 +116,6 @@ function TripCard({ trip, meId, onOpen }: { trip: Trip; meId: string; onOpen: ()
               {id === meId ? ' (you)' : ''}
             </span>
           ))}
-          <span className="chip" style={{ fontFamily: 'ui-monospace, Menlo, monospace', letterSpacing: '0.12em' }}>
-            {trip.code}
-          </span>
         </div>
       </div>
     </button>

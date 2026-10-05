@@ -221,7 +221,7 @@ export default function Trip({ name }: { name: string }) {
 
   const shareCode = async () => {
     if (!trip) return
-    const text = `Join my walk "${trip.name}" on take a walk with code ${trip.code}`
+    const text = `Join my walk "${trip.name}" on take a walk`
     const url = location.href
     try {
       if (navigator.share) await navigator.share({ title: trip.name, text, url })
@@ -351,7 +351,6 @@ export default function Trip({ name }: { name: string }) {
         <div className="trip-title" onClick={rename}>
           <h1>{trip?.name ?? 'Loading…'}</h1>
           <div className="sub">
-            <span className="code-chip">{trip?.code ?? '····'}</span>
             <span>
               {walkingCount > 0 ? `${walkingCount} walking now` : trip?.status === 'published' ? 'published' : 'not walking'}
               {' · '}
