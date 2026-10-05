@@ -19,6 +19,7 @@ steps:
       - --allow-unauthenticated
       - --port=8080
       - --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
+      - --set-secrets=ADMIN_PASSWORD=takeawalk-admin-password:latest,ADMIN_TOKEN_SECRET=takeawalk-admin-token-secret:latest
       - --quiet
 substitutions:
   _IMAGE: us-east1-docker.pkg.dev/hvrc-web/cloud-run-source-deploy/takeawalk/takeawalk

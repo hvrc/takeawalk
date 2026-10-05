@@ -1,0 +1,10 @@
+{
+  "name": "takeawalk-server",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.mjs" },
+  "dependencies": {
+    "@google-cloud/firestore": "^7.11.0",
+    "@google-cloud/storage": "^7.14.0"
+  }
+}

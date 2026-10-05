@@ -36,3 +36,4 @@ ui-debug.log
 test-results/
 playwright-report/
 dist-emu
+server/node_modules

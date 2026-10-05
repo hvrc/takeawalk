@@ -7,6 +7,7 @@ import { checkJoinDistance, getTrip, listKnownWalkers, type KnownWalker } from '
 import NamePrompt from './components/NamePrompt'
 import Home from './pages/Home'
 import Trip from './pages/Trip'
+import Admin from './pages/Admin'
 import { uploader } from './lib/uploader'
 
 // iOS restarts a home-screen app on its start page after killing it in the
@@ -79,6 +80,9 @@ export default function App() {
     setNameState(w.name)
     return null
   }
+
+  // Admin has its own sign-in; it doesn't need a walker name or Firebase.
+  if (location.pathname.replace(/\/$/, '') === '/admin') return <Admin />
 
   if (error) {
     return (

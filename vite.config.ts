@@ -51,5 +51,6 @@ export default defineConfig({
   // MapLibre ships its own worker module; the dev optimizer can't follow it.
   optimizeDeps: { exclude: ['maplibre-gl'] },
   worker: { format: 'es' },
-  server: { host: true, port: 5173 },
+  server: { host: true, port: 5173, proxy: { '/api': 'http://127.0.0.1:8787' } },
+  preview: { proxy: { '/api': 'http://127.0.0.1:8787' } },
 })

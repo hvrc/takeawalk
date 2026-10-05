@@ -5,4 +5,5 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 gcloud run deploy takeawalk --source . --project hvrc-web --region us-east1 \
-  --allow-unauthenticated --port 8080 --quiet
+  --allow-unauthenticated --port 8080 --quiet \
+  --set-secrets=ADMIN_PASSWORD=takeawalk-admin-password:latest,ADMIN_TOKEN_SECRET=takeawalk-admin-token-secret:latest

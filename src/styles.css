@@ -450,3 +450,16 @@ textarea.field { resize: none; line-height: 1.4; }
   .topbar { left: 50%; right: auto; transform: translateX(-50%); width: 520px; }
   .members-row { left: 50%; right: auto; transform: translateX(-50%); width: 520px; }
 }
+
+/* ---------- admin ---------- */
+.admin-walk { display: grid; gap: 8px; }
+.admin-walk.is-hidden { opacity: 0.6; }
+.admin-walk-head { display: flex; align-items: center; gap: 8px; }
+.admin-walk h3 { margin: 0; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; font-stretch: 75%; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-walk h3 a { text-decoration: none; }
+.admin-walk .meta { font-size: 13px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.admin-actions { justify-content: flex-end; }
+.admin-confirm { display: grid; gap: 8px; }
+.admin-confirm p { margin: 0; font-size: 14px; }
+.admin-confirm .row { justify-content: flex-end; }
+.admin-msg { padding: 10px 12px; border: var(--rule); border-radius: 4px; background: var(--card); font-size: 14px; }
