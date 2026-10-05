@@ -62,12 +62,8 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
       <header className="home-banner">
         <div className="home-header">
           <h1 className="wordmark with-walker">
-            ta
-            <span className="k-perch">
-              k
-              <Walker variant="dotted" color="var(--leaf)" className="wordmark-walker" />
-            </span>
-            e a walk
+            take a walk
+            <Walker variant="dotted" color="var(--leaf)" className="wordmark-walker" />
           </h1>
           <button className="name-pill" onClick={rename} aria-label="Change your name">
             <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>

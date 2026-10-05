@@ -541,9 +541,8 @@ textarea.field { resize: none; line-height: 1.4; }
 /* home masthead: a dotted walker stepping into the "t" */
 /* a small dotted walker standing on top of the "k" of "take" */
 .wordmark.with-walker { white-space: nowrap; }
-.k-perch { position: relative; display: inline-block; }
-/* in front of the k: same height as the letters, feet on the baseline, drawn over it */
-.wordmark-walker { position: absolute; z-index: 1; left: 50%; bottom: 0.03em; height: 0.78em; width: auto; transform: translateX(-30%); }
+/* right after "walk": same height as the letters, feet on the baseline */
+.wordmark-walker { height: 0.78em; width: auto; vertical-align: -0.083em; margin-left: 0.06em; }
 .start-card h2 { display: flex; align-items: flex-end; gap: 10px; }
 /* the stroller walks the rest of the heading row and back */
 .stroll-track { position: relative; flex: 1; min-width: 0; height: 26px; }
