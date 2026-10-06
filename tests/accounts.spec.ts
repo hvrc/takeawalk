@@ -27,7 +27,7 @@ test('sign up, sign out, sign in with username or email; wrong password; forgot 
 
   // Signed in survives a reload.
   await page.reload()
-  await expect(page.getByText('All walks')).toBeVisible()
+  await expect(page.getByText('Public walks')).toBeVisible()
 
   // Same username can't be taken twice.
   const res = await page.request.post('/api/auth/signup', { data: { username, email: `other-${username}@example.com`, password: 'walking1' } })
@@ -45,13 +45,13 @@ test('sign up, sign out, sign in with username or email; wrong password; forgot 
   await expect(page.getByText('Wrong username or password.')).toBeVisible()
   await page.getByLabel('Password', { exact: true }).fill('walking1')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByText('All walks')).toBeVisible()
+  await expect(page.getByText('Public walks')).toBeVisible()
   page.once('dialog', (d) => d.accept())
   await page.locator('.name-pill').click()
   await page.getByLabel('Username or email').fill(`${username}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill('walking1')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByText('All walks')).toBeVisible()
+  await expect(page.getByText('Public walks')).toBeVisible()
 })
 
 test('walks are private until made public; far-away people can’t join', async ({ browser }) => {
@@ -85,5 +85,5 @@ test('walks are private until made public; far-away people can’t join', async 
   await far.goto(url)
   await far.getByRole('button', { name: `Join as ${farName}` }).click()
   await expect(far.locator('.toast')).toContainText('km from this walk', { timeout: 20_000 })
-  await expect(a.locator('.members-row .chip')).toHaveCount(1)
+  await expect(a.locator('.title-members .chip')).toHaveCount(1)
 })

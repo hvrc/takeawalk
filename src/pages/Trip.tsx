@@ -63,18 +63,18 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
       return false
     }
   })
-  // The bottom panel can shrink to a row of round buttons. Remembered per phone.
-  const [compact, setCompact] = useState(() => {
+  // The walk's numbers show in a bubble above the buttons when asked for. Remembered per phone.
+  const [details, setDetails] = useState(() => {
     try {
-      return localStorage.getItem('taw.compact') === '1'
+      return localStorage.getItem('taw.details') === '1'
     } catch {
       return false
     }
   })
-  const setCompactPref = (v: boolean) => {
-    setCompact(v)
+  const setDetailsPref = (v: boolean) => {
+    setDetails(v)
     try {
-      localStorage.setItem('taw.compact', v ? '1' : '0')
+      localStorage.setItem('taw.details', v ? '1' : '0')
     } catch {
       /* ignore */
     }
@@ -359,15 +359,21 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
   const tripRef = useRef<HTMLDivElement>(null)
   // Same for the name tags under the title box.
   const topRef = useRef<HTMLDivElement>(null)
+  const detRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const bar = barRef.current
     const top = topRef.current
+    const det = detRef.current
+    const set = (k: string, v: number) => tripRef.current?.style.setProperty(k, `${v}px`)
+    set('--det-h', det ? det.offsetHeight + 12 : 0)
     const ro = new ResizeObserver(() => {
-      if (bar) tripRef.current?.style.setProperty('--bar-h', `${bar.offsetHeight}px`)
-      if (top) tripRef.current?.style.setProperty('--top-h', `${top.offsetHeight}px`)
+      if (bar) set('--bar-h', bar.offsetHeight)
+      if (top) set('--top-h', top.offsetHeight)
+      set('--det-h', det ? det.offsetHeight + 12 : 0)
     })
     if (bar) ro.observe(bar)
     if (top) ro.observe(top)
+    if (det) ro.observe(det)
     return () => ro.disconnect()
   })
 
@@ -415,8 +421,8 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
   const hasMySegments = segments.some((s) => s.memberId === me.id)
   const elapsed = trackerRef.current?.elapsedMs ?? 0
   const gpsAcc = myFix?.acc ?? member?.lastPos?.acc
-  // Compact dock only where there are walking controls.
-  const dock = compact && !!trip && !finished && isMember
+  // The round-button dock wherever there are walking controls.
+  const dock = !!trip && !finished && isMember
 
   // Toggle between "show everything" and "follow me".
   const recenter = () => {
@@ -474,23 +480,23 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
               )
             ) : null}
           </div>
+          {trip ? (
+            <div className="title-members">
+              {Object.entries(trip.members).map(([id, m]) => (
+                <span key={id} className={`chip ${id === me.id ? 'me' : ''}`}>
+                  <span className="dot" style={{ background: m.color }} />
+                  {id === me.id ? 'you' : m.name}
+                  {isWalking(m) ? <span className="walking" /> : null}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
         <button className="btn-icon" onClick={shareCode} aria-label="Share invite">
           <IconShare />
         </button>
       </div>
 
-      {trip ? (
-        <div className="members-row">
-          {Object.entries(trip.members).map(([id, m]) => (
-            <span key={id} className={`chip ${id === me.id ? 'me' : ''}`}>
-              <span className="dot" style={{ background: m.color }} />
-              {id === me.id ? 'you' : m.name}
-              {isWalking(m) ? <span className="walking" /> : null}
-            </span>
-          ))}
-        </div>
-      ) : null}
 
       <Walker className="map-walker" variant="dotted" color="var(--ink)" size={46} walking={tracking} looking={!tracking} />
 
@@ -506,6 +512,40 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
       <button className="btn-icon recenter" aria-label="Recenter" onClick={recenter}>
         <IconLocate />
       </button>
+
+      {trip && !finished && isMember && details ? (
+        <div className="details-bubble" ref={detRef}>
+          <div className="stats">
+            <div className="stat">
+              <b>{formatDistance(myDistance)}</b>
+              <span>you</span>
+            </div>
+            <div className="stat">
+              <b>{formatDistance(totalDistance)}</b>
+              <span>everyone</span>
+            </div>
+            <div className="stat">
+              <b>{live ? formatDuration(elapsed) : '–'}</b>
+              <span>this session</span>
+            </div>
+            <div className="stat right">
+              <b>{gpsAcc != null ? `±${Math.round(gpsAcc)}m` : '–'}</b>
+              <span>gps</span>
+            </div>
+          </div>
+          <div className={`status-line ${trackerState === 'autopaused' ? 'warn' : ''}`}>
+            {trackerState === 'tracking'
+              ? 'Walking. Keep this screen open; we pause automatically when you leave and resume when you come back.'
+              : trackerState === 'starting'
+                ? 'Getting a GPS fix…'
+                : trackerState === 'paused'
+                  ? 'Paused. Your line picks up fresh when you resume.'
+                  : trackerState === 'autopaused'
+                    ? 'Paused while the app was in the background.'
+                    : 'Tap play to begin drawing your line. Photos pin where you are.'}
+          </div>
+        </div>
+      ) : null}
 
       <div className={`bottombar ${dock ? 'compact' : ''}`} ref={barRef}>
         {!trip ? (
@@ -528,7 +568,16 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
             </div>
             <div className="finished-line">This walk is finished. Tap a pin to see its polaroids.</div>
           </>
-        ) : dock ? (
+        ) : !isMember ? (
+          <div className="join-card">
+            <p>
+              You're looking at <b>{trip.name}</b>. Join to walk it, draw your own line and pin polaroids.
+            </p>
+            <button className={`btn btn-accent ${joining ? 'busy' : ''}`} onClick={join} disabled={joining}>
+              {joining ? <span className="spinner sm" aria-label="Checking where you are" /> : `Join as ${me.name}`}
+            </button>
+          </div>
+        ) : (
           <div className="dock">
             {trackerState === 'tracking' ? (
               <button className="dock-btn" onClick={pause} aria-label="Pause">
@@ -543,11 +592,14 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
                 <IconPlay />
               </button>
             )}
-            <button className="dock-btn shutter-sm" onClick={onShutter} aria-label="Take a polaroid">
-              <IconCamera />
+            <button className="dock-btn" onClick={shareCode} aria-label="Invite">
+              <IconShare />
             </button>
             <button className="dock-btn" onClick={togglePolaroids} aria-label={showPolaroids ? 'Show photos as pins' : 'Show photos as polaroids'}>
               {showPolaroids ? <IconPin /> : <IconPhoto />}
+            </button>
+            <button className="dock-btn shutter-sm" onClick={onShutter} aria-label="Take a polaroid">
+              <IconCamera />
             </button>
             <button className="dock-btn danger" onClick={finish} aria-label="Finish">
               <IconFlag />
@@ -555,85 +607,10 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
             <button className="dock-btn" onClick={recenter} aria-label="Recenter">
               <IconLocate />
             </button>
-            <button className="dock-btn" onClick={() => setCompactPref(false)} aria-label="Show details">
-              <IconChevronUp />
+            <button className="dock-btn" onClick={() => setDetailsPref(!details)} aria-label={details ? 'Hide details' : 'Show details'}>
+              {details ? <IconChevronDown /> : <IconChevronUp />}
             </button>
           </div>
-        ) : !isMember ? (
-          <div className="join-card">
-            <p>
-              You're looking at <b>{trip.name}</b>. Join to walk it, draw your own line and pin polaroids.
-            </p>
-            <button className={`btn btn-accent ${joining ? 'busy' : ''}`} onClick={join} disabled={joining}>
-              {joining ? <span className="spinner sm" aria-label="Checking where you are" /> : `Join as ${me.name}`}
-            </button>
-          </div>
-        ) : (
-          <>
-            <button className="btn-icon minimize" onClick={() => setCompactPref(true)} aria-label="Make this smaller">
-              <IconChevronDown />
-            </button>
-            <div className="stats">
-              <div className="stat">
-                <b>{formatDistance(myDistance)}</b>
-                <span>you</span>
-              </div>
-              <div className="stat">
-                <b>{formatDistance(totalDistance)}</b>
-                <span>everyone</span>
-              </div>
-              <div className="stat">
-                <b>{live ? formatDuration(elapsed) : '–'}</b>
-                <span>this session</span>
-              </div>
-              <div className="stat right">
-                <b>{gpsAcc != null ? `±${Math.round(gpsAcc)}m` : '–'}</b>
-                <span>gps</span>
-              </div>
-            </div>
-            <div className="controls">
-              {trackerState === 'idle' ? (
-                <button className="btn btn-accent" onClick={start}>
-                  <IconPlay style={{ width: 18, height: 18 }} /> {hasMySegments ? 'Resume' : 'Start'}
-                </button>
-              ) : trackerState === 'starting' ? (
-                <button className="btn" disabled>
-                  Locating…
-                </button>
-              ) : trackerState === 'tracking' ? (
-                <button className="btn btn-ghost" onClick={pause}>
-                  <IconPause style={{ width: 18, height: 18 }} /> Pause
-                </button>
-              ) : (
-                <button className="btn btn-accent" onClick={resume}>
-                  <IconPlay style={{ width: 18, height: 18 }} /> Resume
-                </button>
-              )}
-              <button className="shutter" onClick={onShutter} aria-label="Take a polaroid" title="Take a polaroid">
-                <IconCamera />
-              </button>
-              {trackerState === 'idle' ? (
-                <button className="btn btn-ghost" onClick={shareCode}>
-                  <IconShare style={{ width: 18, height: 18 }} /> Invite
-                </button>
-              ) : (
-                <button className="btn btn-ghost danger" onClick={finish}>
-                  <IconFlag style={{ width: 18, height: 18 }} /> Finish
-                </button>
-              )}
-            </div>
-            <div className={`status-line ${trackerState === 'autopaused' ? 'warn' : ''}`}>
-              {trackerState === 'tracking'
-                ? 'Walking. Keep this screen open; we pause automatically when you leave and resume when you come back.'
-                : trackerState === 'starting'
-                  ? 'Getting a GPS fix…'
-                  : trackerState === 'paused'
-                    ? 'Paused. Your line picks up fresh when you resume.'
-                    : trackerState === 'autopaused'
-                      ? 'Paused while the app was in the background.'
-                      : 'Tap Start to begin drawing your line. Photos pin where you are.'}
-            </div>
-          </>
         )}
       </div>
 

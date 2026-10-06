@@ -133,9 +133,9 @@ test('a photo survives a failed upload, leaving the walk and a reload', async ({
 
   // Leave the walk and reload the whole app: the photo is still queued on the phone.
   await page.getByRole('button', { name: 'Back' }).click()
-  await expect(page.getByText('All walks')).toBeVisible()
+  await expect(page.getByText('Public walks')).toBeVisible()
   await page.reload()
-  await expect(page.getByText('All walks')).toBeVisible()
+  await expect(page.getByText('Public walks')).toBeVisible()
   expect(await queued(page)).toBe(1)
   expect(await polaroidsInFirestore(tripId)).toHaveLength(0)
 

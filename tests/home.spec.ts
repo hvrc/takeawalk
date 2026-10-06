@@ -18,7 +18,7 @@ test('a slow walk creation shows a pop-up that can be closed', async ({ page }) 
   await page.screenshot({ path: 'test-results/shots/00c-creating.png' })
   await page.getByRole('button', { name: 'Stop waiting' }).click()
   await expect(page.getByText('Creating your walk…')).toHaveCount(0)
-  await expect(page.getByText('All walks')).toBeVisible() // still home
+  await expect(page.getByText('Public walks')).toBeVisible() // still home
   await page.waitForTimeout(7000)
   await expect(page).toHaveURL(/\/$/) // didn't jump into the walk afterwards
 })

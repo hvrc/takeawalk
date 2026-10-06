@@ -16,12 +16,14 @@ export function as(uid: string) {
 /** Sign up through the landing page and land on home. Returns the username. */
 export async function signUp(page: Page, name: string, password = 'walking1') {
   const username = `${name}${Date.now().toString(36).slice(-5)}`.toLowerCase()
+  // Tests read the walking status line, which lives in the details bubble.
+  await page.addInitScript(() => localStorage.setItem('taw.details', '1'))
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign up' }).click()
   await page.getByLabel('Username').fill(username)
   await page.getByLabel('Email').fill(`${username}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Make my account' }).click()
-  await expect(page.getByText('All walks')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText('Public walks')).toBeVisible({ timeout: 20_000 })
   return username
 }

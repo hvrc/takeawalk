@@ -80,8 +80,8 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await b.page.screenshot({ path: `${SHOTS}/04-private-join.png` })
   await b.page.getByRole('button', { name: `Join as ${b.username}` }).click()
   await expect(b.page.locator('.trip-title h1')).toHaveText(TRIP)
-  await expect(b.page.locator('.members-row .chip')).toHaveCount(2)
-  await expect(a.page.locator('.members-row .chip')).toHaveCount(2)
+  await expect(b.page.locator('.title-members .chip')).toHaveCount(2)
+  await expect(a.page.locator('.title-members .chip')).toHaveCount(2)
   // B sees A's polaroid
   await expect(b.page.locator('.pin-photo')).toHaveCount(1)
 
@@ -178,11 +178,9 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.getByRole('button', { name: 'Resume' }).click()
   await expect(a.page.locator('.status-line')).toContainText('Walking', { timeout: 20_000 })
 
-  // --- shrink the panel to round buttons, pause/resume from there, and bring it back
-  await a.page.getByRole('button', { name: 'Make this smaller' }).click()
-  await expect(a.page.locator('.dock')).toBeVisible()
-  await expect(a.page.locator('.stats')).toHaveCount(0)
-  await expect(a.page.locator('.recenter')).toBeHidden()
+  // --- hide the details bubble, pause/resume from the dock, and bring details back
+  await a.page.getByRole('button', { name: 'Hide details' }).click()
+  await expect(a.page.locator('.details-bubble')).toHaveCount(0)
   await a.page.screenshot({ path: `${SHOTS}/08b-compact.png` })
   await a.page.locator('.dock').getByRole('button', { name: 'Pause' }).click()
   await expect(a.page.locator('.map-walker')).toHaveClass(/looking/)
