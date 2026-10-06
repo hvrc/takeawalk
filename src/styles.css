@@ -233,7 +233,7 @@ textarea.field { resize: none; line-height: 1.4; }
   padding: 1px 6px 1px 8px; border-radius: 999px;
 }
 .code-chip::before { content: 'No. '; letter-spacing: 0.04em; font-weight: 600; opacity: 0.75; }
-.members-row { position: absolute; top: calc(74px + var(--sat)); left: 10px; right: 10px; z-index: 5; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.members-row { position: absolute; top: calc(10px + var(--top-h, 64px) + 8px + var(--sat)); left: 10px; right: 10px; z-index: 5; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
 .members-row .chip { pointer-events: auto; padding: 2px 8px 2px 5px; font-size: 12px; box-shadow: var(--shadow-sm); }
 .members-row .chip.me { background: var(--ochre); }
 .members-row .chip .walking { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: pulse 1.4s infinite; }

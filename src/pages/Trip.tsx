@@ -357,11 +357,17 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
   // Keep the map buttons just above the bottom panel, whatever its height.
   const barRef = useRef<HTMLDivElement>(null)
   const tripRef = useRef<HTMLDivElement>(null)
+  // Same for the name tags under the title box.
+  const topRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const bar = barRef.current
-    if (!bar) return
-    const ro = new ResizeObserver(() => tripRef.current?.style.setProperty('--bar-h', `${bar.offsetHeight}px`))
-    ro.observe(bar)
+    const top = topRef.current
+    const ro = new ResizeObserver(() => {
+      if (bar) tripRef.current?.style.setProperty('--bar-h', `${bar.offsetHeight}px`)
+      if (top) tripRef.current?.style.setProperty('--top-h', `${top.offsetHeight}px`)
+    })
+    if (bar) ro.observe(bar)
+    if (top) ro.observe(top)
     return () => ro.disconnect()
   })
 
@@ -439,7 +445,7 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
         focus={trip ? (finished ? 'start' : 'current') : null}
       />
 
-      <div className="topbar">
+      <div className="topbar" ref={topRef}>
         <button className="btn-icon" onClick={() => nav('/')} aria-label="Back">
           <IconBack />
         </button>
