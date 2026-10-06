@@ -3,6 +3,7 @@ import type { Services } from '../firebase'
 import { chooseUsername, connectGoogle, finishGoogleRedirect, signIn, signInWithGoogle, signUp } from '../lib/account'
 import type { AuthCredential } from 'firebase/auth'
 import { WalkerParade } from './Walker'
+import PlaceMap from './PlaceMap'
 
 type Mode = 'signin' | 'signup' | 'forgot' | 'link'
 
@@ -39,7 +40,11 @@ function Password({ value, onChange, autoComplete }: { value: string; onChange: 
 
 function GoogleButton({ services, label, onError }: { services: Services; label: string; onError: (m: string) => void }) {
   return (
-    <button type="button" className="btn btn-ghost google-btn" onClick={() => signInWithGoogle(services).catch(() => onError("Google sign-in didn't start. Try again."))}>
+    <button
+      type="button"
+      className="btn btn-ghost google-btn"
+      onClick={() => signInWithGoogle(services).catch(() => onError("Google sign-in didn't start. Try again."))}
+    >
       <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
         <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z" />
         <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.6 7.1-17.1z" />
@@ -60,7 +65,10 @@ export default function AuthScreen({ services }: { services: Services }) {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const [pending, setPending] = useState<{ email: string; credential: AuthCredential } | null>(null)
+  const [pending, setPending] = useState<{
+    email: string
+    credential: AuthCredential
+  } | null>(null)
 
   useEffect(() => {
     finishGoogleRedirect(services).then((r) => {
@@ -93,111 +101,115 @@ export default function AuthScreen({ services }: { services: Services }) {
   }
 
   return (
-    <div className="splash auth">
-      <WalkerParade size={40} />
-      <h1 className="wordmark">
-        take a walk <span className="nowrap">(with a friend)</span>
-        <small>and pin some pictures along the way</small>
-      </h1>
+    <div className="auth-page">
+      <PlaceMap />
+      <div className="splash auth">
+        <WalkerParade size={40} />
+        <h1 className="wordmark">
+          take a walk <span className="nowrap">(with a friend)</span>
+          <small>and pin some pictures along the way</small>
+        </h1>
 
-      {mode === 'link' && pending ? (
-        <form className="card auth-card" onSubmit={submit}>
-          <h2>You already have an account</h2>
-          <p>
-            <b>{pending.email}</b> already has a take a walk account. Enter its password once to connect Google to it; after that, Sign in with Google takes you straight
-            in.
-          </p>
-          <Password value={password} onChange={setPassword} autoComplete="current-password" />
-          {msg ? <p className="confirm-error">{msg}</p> : null}
-          <button className={`btn btn-accent ${busy ? 'busy' : ''}`} type="submit" disabled={busy || !password}>
-            {busy ? <span className="spinner sm" aria-label="Working" /> : 'Connect Google'}
-          </button>
-          <button type="button" className="link-btn" onClick={() => go('forgot')}>
-            Forgot password?
-          </button>
-        </form>
-      ) : mode === 'forgot' ? (
-        <div className="card auth-card">
-          <h2>Forgot your password?</h2>
-          <p>
-            Email <a href={`mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent('take a walk: I forgot my password')}`}>{ADMIN_EMAIL}</a> saying you forgot your password. He'll fix it for you.
-          </p>
-          <button className="btn btn-ghost" onClick={() => go('signin')}>
-            Back to sign in
-          </button>
-        </div>
-      ) : (
-        <form className="card auth-card" onSubmit={submit}>
-          <h2>{mode === 'signin' ? 'Sign in' : 'Make an account'}</h2>
-          <GoogleButton services={services} label={mode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'} onError={setMsg} />
-          <div className="or">or</div>
-          {mode === 'signin' ? (
-            <input
-              className="field"
-              placeholder="username or email"
-              aria-label="Username or email"
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-              autoComplete="username"
-              autoCapitalize="none"
-              autoCorrect="off"
-            />
-          ) : (
-            <>
-              <input
-                className="field"
-                placeholder="username"
-                aria-label="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                maxLength={24}
-              />
-              <input
-                className="field"
-                type="email"
-                placeholder="email"
-                aria-label="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </>
-          )}
-          <Password value={password} onChange={setPassword} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} />
-          {msg ? <p className="confirm-error">{msg}</p> : null}
-          <button
-            className={`btn btn-accent ${busy ? 'busy' : ''}`}
-            type="submit"
-            disabled={busy || !password || (mode === 'signin' ? !login.trim() : !username.trim() || !email.trim())}
-          >
-            {busy ? <span className="spinner sm" aria-label="Working" /> : mode === 'signin' ? 'Sign in' : 'Make my account'}
-          </button>
-          {mode === 'signin' ? (
+        {mode === 'link' && pending ? (
+          <form className="card auth-card" onSubmit={submit}>
+            <h2>You already have an account</h2>
+            <p>
+              <b>{pending.email}</b> already has a take a walk account. Enter its password once to connect Google to it; after that, Sign in with Google takes
+              you straight in.
+            </p>
+            <Password value={password} onChange={setPassword} autoComplete="current-password" />
+            {msg ? <p className="confirm-error">{msg}</p> : null}
+            <button className={`btn btn-accent ${busy ? 'busy' : ''}`} type="submit" disabled={busy || !password}>
+              {busy ? <span className="spinner sm" aria-label="Working" /> : 'Connect Google'}
+            </button>
             <button type="button" className="link-btn" onClick={() => go('forgot')}>
               Forgot password?
             </button>
-          ) : null}
-        </form>
-      )}
+          </form>
+        ) : mode === 'forgot' ? (
+          <div className="card auth-card">
+            <h2>Forgot your password?</h2>
+            <p>
+              Email <a href={`mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent('take a walk: I forgot my password')}`}>{ADMIN_EMAIL}</a> saying you forgot
+              your password. He'll fix it for you.
+            </p>
+            <button className="btn btn-ghost" onClick={() => go('signin')}>
+              Back to sign in
+            </button>
+          </div>
+        ) : (
+          <form className="card auth-card" onSubmit={submit}>
+            <h2>{mode === 'signin' ? 'Sign in' : 'Make an account'}</h2>
+            <GoogleButton services={services} label={mode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'} onError={setMsg} />
+            <div className="or">or</div>
+            {mode === 'signin' ? (
+              <input
+                className="field"
+                placeholder="username or email"
+                aria-label="Username or email"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+            ) : (
+              <>
+                <input
+                  className="field"
+                  placeholder="username"
+                  aria-label="Username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  maxLength={24}
+                />
+                <input
+                  className="field"
+                  type="email"
+                  placeholder="email"
+                  aria-label="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </>
+            )}
+            <Password value={password} onChange={setPassword} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} />
+            {msg ? <p className="confirm-error">{msg}</p> : null}
+            <button
+              className={`btn btn-accent ${busy ? 'busy' : ''}`}
+              type="submit"
+              disabled={busy || !password || (mode === 'signin' ? !login.trim() : !username.trim() || !email.trim())}
+            >
+              {busy ? <span className="spinner sm" aria-label="Working" /> : mode === 'signin' ? 'Sign in' : 'Make my account'}
+            </button>
+            {mode === 'signin' ? (
+              <button type="button" className="link-btn" onClick={() => go('forgot')}>
+                Forgot password?
+              </button>
+            ) : null}
+          </form>
+        )}
 
-      {mode === 'signin' ? (
-        <p className="auth-switch">
-          New here?{' '}
-          <button className="link-btn" onClick={() => go('signup')}>
-            Sign up
-          </button>
-        </p>
-      ) : mode === 'signup' ? (
-        <p className="auth-switch">
-          Already have an account?{' '}
-          <button className="link-btn" onClick={() => go('signin')}>
-            Sign in
-          </button>
-        </p>
-      ) : null}
+        {mode === 'signin' ? (
+          <p className="auth-switch">
+            New here?{' '}
+            <button className="link-btn" onClick={() => go('signup')}>
+              Sign up
+            </button>
+          </p>
+        ) : mode === 'signup' ? (
+          <p className="auth-switch">
+            Already have an account?{' '}
+            <button className="link-btn" onClick={() => go('signin')}>
+              Sign in
+            </button>
+          </p>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -225,7 +237,15 @@ export function ChooseUsername({ services, suggestion, onSignOut }: { services: 
       <form className="card auth-card" onSubmit={submit}>
         <h2>Pick a username</h2>
         <p className="muted">This is the name your friends see on walks.</p>
-        <input className="field" aria-label="Username" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} autoCapitalize="none" autoCorrect="off" />
+        <input
+          className="field"
+          aria-label="Username"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={24}
+          autoCapitalize="none"
+          autoCorrect="off"
+        />
         {msg ? <p className="confirm-error">{msg}</p> : null}
         <button className={`btn btn-accent ${busy ? 'busy' : ''}`} type="submit" disabled={busy || !name.trim()}>
           {busy ? <span className="spinner sm" aria-label="Saving" /> : 'Continue'}

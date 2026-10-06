@@ -76,10 +76,6 @@ export default function PlaceMap() {
     })
     map.touchZoomRotate.disableRotation()
     registerPatterns(map)
-    // No street or place names: the title sits on top of this map.
-    map.on('style.load', () => {
-      for (const l of map.getStyle().layers ?? []) if (l.type === 'symbol') map.setLayoutProperty(l.id, 'visibility', 'none')
-    })
     let tries = 0
     const onIdle = () => {
       // For the random stop, keep looking until we land on somewhere with roads or buildings.

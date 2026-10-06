@@ -96,20 +96,48 @@ export default function Home({ me }: { me: { id: string; name: string } }) {
         ) : null}
       </section>
 
-      <div className="section-title"><span>All walks</span></div>
       {trips === null ? (
-        <div className="empty">Loading walks…</div>
-      ) : trips.length === 0 ? (
-        <div className="empty">
-          <WalkerParade size={34} />
-          <p>No walks yet. Yours could be the first.</p>
-        </div>
+        <>
+          <div className="section-title">
+            <span>Walks</span>
+          </div>
+          <div className="empty">Loading walks…</div>
+        </>
       ) : (
-        <div className="trip-list">
-          {trips.map((t) => (
-            <TripCard key={t.id} trip={t} meId={me.id} onOpen={() => nav(`/t/${t.id}`)} />
-          ))}
-        </div>
+        <>
+          {/* Private walks only appear when you have some. */}
+          {trips.some((t) => t.visibility === 'private') ? (
+            <>
+              <div className="section-title">
+                <span>Private walks</span>
+              </div>
+              <div className="trip-list">
+                {trips
+                  .filter((t) => t.visibility === 'private')
+                  .map((t) => (
+                    <TripCard key={t.id} trip={t} meId={me.id} onOpen={() => nav(`/t/${t.id}`)} />
+                  ))}
+              </div>
+            </>
+          ) : null}
+          <div className="section-title">
+            <span>Public walks</span>
+          </div>
+          {trips.some((t) => t.visibility === 'public') ? (
+            <div className="trip-list">
+              {trips
+                .filter((t) => t.visibility === 'public')
+                .map((t) => (
+                  <TripCard key={t.id} trip={t} meId={me.id} onOpen={() => nav(`/t/${t.id}`)} />
+                ))}
+            </div>
+          ) : (
+            <div className="empty">
+              <WalkerParade size={34} />
+              <p>No public walks yet.</p>
+            </div>
+          )}
+        </>
       )}
       {showCreating ? (
         <div className="modal-backdrop" onClick={cancelCreate}>
@@ -143,12 +171,23 @@ function TripCard({ trip, meId, onOpen }: { trip: Trip; meId: string; onOpen: ()
       )}
       <div>
         <h3>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trip.name}</span>
+          <span
+            style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {trip.name}
+          </span>
+          <span className={`vis-chip ${trip.visibility}`}>{trip.visibility}</span>
           {live ? <span className="badge live">live</span> : trip.status === 'published' ? <span className="badge">finished</span> : null}
         </h3>
         <div className="meta">
           <span>{formatDistance(trip.distanceM)}</span>
-          <span>{trip.polaroidCount} polaroid{trip.polaroidCount === 1 ? '' : 's'}</span>
+          <span>
+            {trip.polaroidCount} polaroid{trip.polaroidCount === 1 ? '' : 's'}
+          </span>
           <span>{formatWhen(trip.updatedAt)}</span>
         </div>
         <div className="members">
