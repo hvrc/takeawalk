@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Services } from '../firebase'
-import { chooseUsername, finishGoogleRedirect, signIn, signInWithGoogle, signUp } from '../lib/account'
+import { chooseUsername, connectGoogle, finishGoogleRedirect, signIn, signInWithGoogle, signUp } from '../lib/account'
+import type { AuthCredential } from 'firebase/auth'
 import { WalkerParade } from './Walker'
 
-type Mode = 'signin' | 'signup' | 'forgot'
+type Mode = 'signin' | 'signup' | 'forgot' | 'link'
 
 const ADMIN_EMAIL = 'harshrajmachikar@gmail.com'
 
@@ -59,9 +60,16 @@ export default function AuthScreen({ services }: { services: Services }) {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [pending, setPending] = useState<{ email: string; credential: AuthCredential } | null>(null)
 
   useEffect(() => {
-    finishGoogleRedirect(services).then((m) => m && setMsg(m))
+    finishGoogleRedirect(services).then((r) => {
+      if (!r) return
+      if ('link' in r) {
+        setPending(r.link)
+        setMode('link')
+      } else setMsg(r.message)
+    })
   }, [services])
 
   const go = (m: Mode) => {
@@ -74,7 +82,8 @@ export default function AuthScreen({ services }: { services: Services }) {
     setBusy(true)
     setMsg(null)
     try {
-      if (mode === 'signin') await signIn(services, login, password)
+      if (mode === 'link' && pending) await connectGoogle(services, pending.email, password, pending.credential)
+      else if (mode === 'signin') await signIn(services, login, password)
       else await signUp(services, username, email, password)
     } catch (err) {
       setMsg((err as Error).message)
@@ -91,7 +100,23 @@ export default function AuthScreen({ services }: { services: Services }) {
         <small>and pin some pictures along the way</small>
       </h1>
 
-      {mode === 'forgot' ? (
+      {mode === 'link' && pending ? (
+        <form className="card auth-card" onSubmit={submit}>
+          <h2>You already have an account</h2>
+          <p>
+            <b>{pending.email}</b> already has a take a walk account. Enter its password once to connect Google to it; after that, Sign in with Google takes you straight
+            in.
+          </p>
+          <Password value={password} onChange={setPassword} autoComplete="current-password" />
+          {msg ? <p className="confirm-error">{msg}</p> : null}
+          <button className={`btn btn-accent ${busy ? 'busy' : ''}`} type="submit" disabled={busy || !password}>
+            {busy ? <span className="spinner sm" aria-label="Working" /> : 'Connect Google'}
+          </button>
+          <button type="button" className="link-btn" onClick={() => go('forgot')}>
+            Forgot password?
+          </button>
+        </form>
+      ) : mode === 'forgot' ? (
         <div className="card auth-card">
           <h2>Forgot your password?</h2>
           <p>

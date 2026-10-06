@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   GoogleAuthProvider,
   getRedirectResult,
+  linkWithCredential,
   onAuthStateChanged,
+  type AuthCredential,
   signInWithEmailAndPassword,
   signInWithRedirect,
   signOut as fbSignOut,
@@ -81,18 +83,42 @@ export async function signInWithGoogle({ auth }: Services) {
   await signInWithRedirect(auth, provider)
 }
 
-/** After coming back from Google: surface any problem as a message. */
-export async function finishGoogleRedirect({ auth }: Services): Promise<string | null> {
+export type GoogleOutcome =
+  | null
+  | { message: string }
+  /** That email already has a password account: confirm its password once to connect Google to it. */
+  | { link: { email: string; credential: AuthCredential } }
+
+/** After coming back from Google: done, a problem, or an account to connect. */
+export async function finishGoogleRedirect({ auth }: Services): Promise<GoogleOutcome> {
   try {
     await getRedirectResult(auth)
     return null
   } catch (e) {
     const code = (e as { code?: string }).code
-    if (code === 'auth/account-exists-with-different-credential')
-      return 'You already have an account with that email. Sign in with your username or email and password instead.'
-    if (code === 'auth/operation-not-allowed') return "Google sign-in isn't switched on yet."
-    return "Google sign-in didn't work. Try again, or use your username and password."
+    if (code === 'auth/account-exists-with-different-credential') {
+      const credential = GoogleAuthProvider.credentialFromError(e as Parameters<typeof GoogleAuthProvider.credentialFromError>[0])
+      const email = (e as { customData?: { email?: string } }).customData?.email
+      if (credential && email) return { link: { email, credential } }
+      return { message: 'You already have an account with that email. Sign in with your username or email and password instead.' }
+    }
+    if (code === 'auth/operation-not-allowed') return { message: "Google sign-in isn't switched on yet." }
+    return { message: "Google sign-in didn't work. Try again, or use your username and password." }
   }
+}
+
+/** Sign in to the existing account with its password, then attach Google to it for next time. */
+export async function connectGoogle({ auth }: Services, email: string, password: string, credential: AuthCredential) {
+  let user
+  try {
+    user = (await signInWithEmailAndPassword(auth, email, password)).user
+  } catch {
+    throw new Error('Wrong password.')
+  }
+  await linkWithCredential(user, credential).catch((e) => {
+    // Already linked is fine; anything else, they're still signed in with their password.
+    if ((e as { code?: string }).code !== 'auth/provider-already-linked') console.warn('link failed', e)
+  })
 }
 
 export async function chooseUsername({ auth }: Services, username: string) {
