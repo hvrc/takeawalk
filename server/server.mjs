@@ -19,6 +19,7 @@ import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Firestore } from '@google-cloud/firestore'
 import { Storage } from '@google-cloud/storage'
+import { accounts } from './accounts.mjs'
 
 const PORT = Number(process.env.PORT || 8080)
 const DIST = process.env.DIST || fileURLToPath(new URL('../dist', import.meta.url))
@@ -29,6 +30,44 @@ const PROJECT = process.env.GCP_PROJECT || 'hvrc-web'
 const BUCKET = process.env.BUCKET || 'hvrc-takeawalk'
 const db = new Firestore({ projectId: PROJECT, databaseId: process.env.FS_DATABASE || 'takeawalk' })
 const bucket = new Storage({ projectId: PROJECT }).bucket(BUCKET)
+const acct = accounts({ db, project: PROJECT, apiKey: process.env.FIREBASE_API_KEY })
+
+// Google sign-in runs its handler on the app's own domain (authDomain =
+// walk.hvrc.place) so it works in browsers that block third-party storage,
+// like Safari. Those paths are passed through to Firebase.
+const AUTH_ORIGIN = `https://${PROJECT}.firebaseapp.com`
+async function proxyAuth(req, res) {
+  const headers = { ...req.headers }
+  delete headers.host
+  const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await rawBody(req)
+  const r = await fetch(AUTH_ORIGIN + req.url, { method: req.method, headers, body, redirect: 'manual' })
+  const out = {}
+  r.headers.forEach((v, k) => {
+    if (!['content-encoding', 'transfer-encoding', 'content-length', 'connection'].includes(k)) out[k] = v
+  })
+  res.writeHead(r.status, out)
+  res.end(Buffer.from(await r.arrayBuffer()))
+}
+async function rawBody(req) {
+  const chunks = []
+  for await (const c of req) chunks.push(c)
+  return Buffer.concat(chunks)
+}
+
+// Same lock-out as admin sign-in, for username sign-in.
+const loginFailures = new Map()
+async function guardedResolve(req, res) {
+  const ip = clientIp(req)
+  const f = loginFailures.get(ip)
+  if (f && f.count >= 10 && Date.now() - f.at < 15 * 60_000) return json(res, 429, { error: 'Too many tries. Wait 15 minutes.' })
+  try {
+    json(res, 200, await acct.resolve(await body(req)))
+    loginFailures.delete(ip)
+  } catch (e) {
+    if (e.status === 401) loginFailures.set(ip, { count: (f && Date.now() - f.at < 15 * 60_000 ? f.count : 0) + 1, at: Date.now() })
+    throw e
+  }
+}
 
 // ---- static app ------------------------------------------------------------
 
@@ -187,7 +226,14 @@ async function body(req) {
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x')
+    if (url.pathname.startsWith('/__/auth/') || url.pathname === '/__/firebase/init.json') return await proxyAuth(req, res)
     if (!url.pathname.startsWith('/api/')) return await serveStatic(req, res)
+    if (req.method === 'POST' && url.pathname === '/api/auth/signup') return json(res, 200, await acct.signup(await body(req)))
+    if (req.method === 'POST' && url.pathname === '/api/auth/resolve') return await guardedResolve(req, res)
+    if (req.method === 'POST' && url.pathname === '/api/auth/username') return json(res, 200, await acct.chooseUsername(req, await body(req)))
+    const j = /^\/api\/walks\/([A-Za-z0-9_-]{1,64})\/join$/.exec(url.pathname)
+    if (j && req.method === 'POST') return json(res, 200, await acct.join(req, j[1], await body(req)))
+    if (!url.pathname.startsWith('/api/admin/')) return json(res, 404, { error: 'Not found.' })
     if (url.pathname === '/api/admin/login' && req.method === 'POST') return await login(req, res)
     if (!checkToken(req)) return json(res, 401, { error: 'Sign in again.' })
     if (url.pathname === '/api/admin/walks' && req.method === 'GET') return await listWalks(res)
@@ -196,6 +242,7 @@ createServer(async (req, res) => {
     if (m && !m[2] && req.method === 'DELETE') return await deleteWalk(res, m[1])
     json(res, 404, { error: 'Not found.' })
   } catch (e) {
+    if (e.status) return json(res, e.status, { error: e.message })
     console.error(e)
     json(res, 500, { error: 'Something went wrong.' })
   }

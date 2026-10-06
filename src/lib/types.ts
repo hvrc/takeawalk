@@ -1,6 +1,7 @@
 import type { Timestamp } from 'firebase/firestore'
 
 export type TripStatus = 'active' | 'published'
+export type Visibility = 'private' | 'public'
 
 export interface Member {
   name: string
@@ -9,8 +10,6 @@ export interface Member {
   lastSeenAt: number
   lastPos?: { lat: number; lng: number; t: number; acc: number } | null
   tracking?: boolean
-  /** The kind of device they last used this walk from, e.g. "iPhone · Safari". */
-  device?: string
 }
 
 export interface Trip {
@@ -28,6 +27,9 @@ export interface Trip {
   coverUrl?: string | null
   /** Set when the walk is finished; after that nothing can be added. */
   finishedAt?: number | null
+  visibility: Visibility
+  /** Account ids of the people on the walk (the keys of `members` that are accounts). */
+  memberUids: string[]
 }
 
 export interface GeoPoint {

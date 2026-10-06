@@ -7,10 +7,12 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import { connectStorageEmulator, getStorage, type FirebaseStorage } from 'firebase/storage'
+import { browserLocalPersistence, browserPopupRedirectResolver, connectAuthEmulator, indexedDBLocalPersistence, initializeAuth, type Auth } from 'firebase/auth'
 
 export interface Services {
   db: Firestore
   storage: FirebaseStorage
+  auth: Auth
   projectId: string
   emulators: boolean
 }
@@ -55,6 +57,7 @@ async function init(): Promise<Services> {
       projectId: 'demo-takeawalk',
       appId: 'demo',
       storageBucket: 'demo-takeawalk.appspot.com',
+      authDomain: location.host,
     }
   } else {
     config = configFromEnv() ?? (await configFromHosting())
@@ -68,12 +71,18 @@ async function init(): Promise<Services> {
   const databaseId = USE_EMULATORS ? undefined : env.VITE_FIREBASE_DATABASE_ID
   const db = databaseId ? initializeFirestore(app, settings, databaseId) : initializeFirestore(app, settings)
   const storage = getStorage(app)
+  // Stay signed in across app restarts (IndexedDB first; Safari sometimes needs the fallback).
+  const auth = initializeAuth(app, {
+    persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+    popupRedirectResolver: browserPopupRedirectResolver,
+  })
 
   if (USE_EMULATORS) {
     const host = location.hostname
     connectFirestoreEmulator(db, host, 8080)
     connectStorageEmulator(storage, host, 9199)
+    connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true })
   }
 
-  return { db, storage, projectId: config.projectId ?? '', emulators: USE_EMULATORS }
+  return { db, storage, auth, projectId: config.projectId ?? '', emulators: USE_EMULATORS }
 }

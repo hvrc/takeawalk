@@ -224,7 +224,7 @@ textarea.field { resize: none; line-height: 1.4; }
 .topbar > * { pointer-events: auto; }
 .trip-title {
   flex: 1; min-width: 0; background: var(--card); border-radius: var(--radius); border: var(--rule); box-shadow: var(--shadow-sm);
-  padding: 7px 12px 8px; display: flex; flex-direction: column; gap: 4px;
+  padding: 9px 22px 10px; display: flex; flex-direction: column; gap: 3px;
 }
 .trip-title h1 { margin: 0; font-size: 19px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trip-title .sub { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
@@ -590,3 +590,22 @@ textarea.field { resize: none; line-height: 1.4; }
 .home .empty { border: var(--rule); border-radius: var(--radius); }
 .home .section-title { background: transparent; }
 .home .section-title > span { padding: 4px 10px; border: 1.5px solid var(--ink); border-radius: 999px; }
+
+/* ---------- accounts ---------- */
+.auth-card { width: 100%; max-width: 360px; display: grid; gap: 12px; text-align: left; padding: 22px; }
+.auth-card h2 { margin: 0; font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; font-stretch: 75%; }
+.auth-card p { margin: 0; font-size: 14px; line-height: 1.45; }
+.auth-card a { color: var(--brick); font-weight: 700; word-break: break-all; }
+.google-btn { gap: 10px; text-transform: none; letter-spacing: 0; font-stretch: 100%; font-weight: 700; }
+.pw-field { position: relative; }
+.pw-field .field { padding-right: 52px; }
+.pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-2); border-radius: 50%; }
+.pw-eye svg { width: 20px; height: 20px; }
+.link-btn { color: var(--brick); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; justify-self: center; font-size: 14px; }
+.auth-switch { margin: 0; font-size: 14px; color: var(--ink-2); }
+.toast.static { position: static; transform: none; margin-top: 12px; }
+.vis-chip {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; font-stretch: 80%;
+  padding: 2px 8px; border-radius: 999px; border: 1.5px solid var(--ink); background: var(--card); color: var(--ink); flex: none;
+}
+.vis-chip.public { background: var(--leaf); color: var(--accent-ink); }

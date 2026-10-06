@@ -2,18 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { useNavigate, useParams } from 'react-router-dom'
 import { useServices } from '../services'
 import { useTrip } from '../hooks/useTrip'
-import { deviceLabel, getDeviceId, MEMBER_COLORS } from '../lib/identity'
+import { MEMBER_COLORS } from '../lib/identity'
+import { joinWalk } from '../lib/account'
 import Walker from '../components/Walker'
 import { Tracker, type TrackerState } from '../lib/tracker'
 import {
   appendPoints,
   endSegment,
-  checkJoinDistance,
   finishTrip,
-  joinTrip,
   newPolaroidId,
   renameTrip,
-  stampDevice,
+  setVisibility,
   startSegment,
   updatePolaroidText,
 } from '../lib/tripApi'
@@ -37,12 +36,13 @@ interface PendingLocal {
   failed?: boolean
 }
 
-export default function Trip({ name }: { name: string }) {
+export default function Trip({ me }: { me: { id: string; name: string } }) {
   const { tripId = '' } = useParams()
   const nav = useNavigate()
-  const { db } = useServices()
-  const { trip, segments, polaroids, loading, error } = useTrip(tripId)
-  const me = useMemo(() => ({ id: getDeviceId(), name }), [name])
+  const services = useServices()
+  const { db } = services
+  const [retryKey, setRetryKey] = useState(0)
+  const { trip, segments, polaroids, loading, error, denied } = useTrip(tripId, retryKey)
   const meRef = useRef(me)
   meRef.current = me
   const member = trip?.members[me.id]
@@ -216,20 +216,33 @@ export default function Trip({ name }: { name: string }) {
   // ---- actions -------------------------------------------------------------
   const [joining, setJoining] = useState(false)
   const join = async () => {
-    if (!trip || joining) return
+    if (joining) return
     setJoining(true)
     try {
-      const tooFar = await checkJoinDistance(trip, segments)
-      if (tooFar) {
-        showToast(tooFar, 6000)
-        return
-      }
-      await joinTrip(db, tripId, me)
+      await joinWalk(services, tripId)
+      setRetryKey((k) => k + 1)
       showToast(`You're in. Your colour is on the map.`)
     } catch (e) {
       showToast((e as Error).message)
     } finally {
       setJoining(false)
+    }
+  }
+
+  const toggleVisibility = async () => {
+    if (!trip) return
+    const next = trip.visibility === 'public' ? 'private' : 'public'
+    const ok = confirm(
+      next === 'public'
+        ? 'Make this walk public? Anyone using take a walk will be able to see it, its route and its photos.'
+        : 'Make this walk private? Only the people on it will be able to see it.',
+    )
+    if (!ok) return
+    try {
+      await setVisibility(db, tripId, next)
+      showToast(next === 'public' ? 'Public. Anyone can see this walk.' : 'Private. Just the people on it.')
+    } catch {
+      showToast("Couldn't change that. Check your connection.")
     }
   }
 
@@ -341,12 +354,6 @@ export default function Trip({ name }: { name: string }) {
     localStorage.removeItem(SESSION_KEY)
   }, [finished])
 
-  // Remember which kind of device this walker is on (for "are you sure you're X?").
-  const myDevice = useMemo(() => deviceLabel(), [])
-  useEffect(() => {
-    if (member && member.device !== myDevice) void stampDevice(db, tripId, me.id).catch(() => undefined)
-  }, [db, tripId, me.id, member, myDevice])
-
   // Keep the map buttons just above the bottom panel, whatever its height.
   const barRef = useRef<HTMLDivElement>(null)
   const tripRef = useRef<HTMLDivElement>(null)
@@ -359,6 +366,23 @@ export default function Trip({ name }: { name: string }) {
   })
 
   // ---- render --------------------------------------------------------------
+  if (denied) {
+    return (
+      <div className="splash">
+        <div className="card auth-card">
+          <h2>This walk is private</h2>
+          <p className="muted">Only the people on it can see it. You have the link, so you can join if you're nearby.</p>
+          <button className={`btn btn-accent ${joining ? 'busy' : ''}`} onClick={join} disabled={joining}>
+            {joining ? <span className="spinner sm" aria-label="Checking where you are" /> : `Join as ${me.name}`}
+          </button>
+          <button className="btn btn-ghost" onClick={() => nav('/')}>
+            Back home
+          </button>
+        </div>
+        {toast ? <div className="toast static">{toast}</div> : null}
+      </div>
+    )
+  }
   if (error) {
     return (
       <div className="splash">
@@ -427,6 +451,22 @@ export default function Trip({ name }: { name: string }) {
               {' · '}
               {allPolaroids.length} polaroid{allPolaroids.length === 1 ? '' : 's'}
             </span>
+            {trip ? (
+              isMember ? (
+                <button
+                  className={`vis-chip ${trip.visibility}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleVisibility()
+                  }}
+                  aria-label={trip.visibility === 'public' ? 'Public: tap to make private' : 'Private: tap to make public'}
+                >
+                  {trip.visibility === 'public' ? 'public' : 'private'}
+                </button>
+              ) : (
+                <span className={`vis-chip ${trip.visibility}`}>{trip.visibility}</span>
+              )
+            ) : null}
           </div>
         </div>
         <button className="btn-icon" onClick={shareCode} aria-label="Share invite">

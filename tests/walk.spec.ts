@@ -1,4 +1,5 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { signUp } from './helpers'
 
 const SHOTS = process.env.SHOTS_DIR || 'test-results/shots'
 
@@ -10,7 +11,7 @@ function step(i: number, bearing: 'east' | 'north') {
   return { latitude: START.latitude + dLat, longitude: START.longitude + dLng, accuracy: 7 }
 }
 
-async function newPhone(browser: Browser, name: string): Promise<{ ctx: BrowserContext; page: Page }> {
+async function newPhone(browser: Browser, name: string): Promise<{ ctx: BrowserContext; page: Page; username: string }> {
   const ctx = await browser.newContext({ geolocation: { ...START, accuracy: 8 }, permissions: ['geolocation'], ignoreHTTPSErrors: true })
   // No share sheet in tests, so saves fall through to a real download.
   await ctx.addInitScript(() => Object.defineProperty(navigator, 'share', { value: undefined }))
@@ -19,11 +20,8 @@ async function newPhone(browser: Browser, name: string): Promise<{ ctx: BrowserC
   page.on('console', (m) => {
     if (m.type() === 'error') console.log(`[${name}] console.error`, m.text())
   })
-  await page.goto('/')
-  await page.getByPlaceholder('your name').fill(name)
-  await page.getByRole('button', { name: 'Get ready' }).click()
-  await expect(page.getByText('All walks')).toBeVisible()
-  return { ctx, page }
+  const username = await signUp(page, name)
+  return { ctx, page, username }
 }
 
 async function fakePhoto(page: Page, hue: number): Promise<Buffer> {
@@ -74,15 +72,13 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   // Upload finishes and the pending pin becomes the real one.
   await expect(a.page.locator('.pin-photo.pending')).toHaveCount(0, { timeout: 30_000 })
 
-  // --- B finds the walk in the list and joins it
+  // --- B can't see A's private walk in the list, but joins from A's link
   const b = await newPhone(browser, 'Friend')
-  const cardB = b.page.locator('.trip-card', { hasText: TRIP })
-  await expect(cardB).toHaveCount(1)
-  await expect(cardB.locator('.badge.live')).toBeVisible()
-  await b.page.screenshot({ path: `${SHOTS}/04-home-with-trip.png` })
-  await expect(b.page.getByPlaceholder('CODE')).toHaveCount(0) // no join-by-code any more
-  await cardB.click()
-  await b.page.getByRole('button', { name: 'Join as Friend' }).click()
+  await expect(b.page.locator('.trip-card', { hasText: TRIP })).toHaveCount(0)
+  await b.page.goto(a.page.url())
+  await expect(b.page.getByText('This walk is private')).toBeVisible()
+  await b.page.screenshot({ path: `${SHOTS}/04-private-join.png` })
+  await b.page.getByRole('button', { name: `Join as ${b.username}` }).click()
   await expect(b.page.locator('.trip-title h1')).toHaveText(TRIP)
   await expect(b.page.locator('.members-row .chip')).toHaveCount(2)
   await expect(a.page.locator('.members-row .chip')).toHaveCount(2)
@@ -137,7 +133,7 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await a.page.locator('.flip-front .flip-btn').click()
   await expect(a.page.locator('.viewer .flip')).toHaveClass(/is-flipped/)
   await a.page.waitForTimeout(700)
-  await expect(a.page.locator('.polaroid-back')).toContainText('Friend')
+  await expect(a.page.locator('.polaroid-back')).toContainText(b.username)
   await expect(a.page.locator('.polaroid-back textarea')).toHaveCount(0) // not A's photo: read-only
   await a.page.screenshot({ path: `${SHOTS}/07-viewer-back.png` })
   // Google Maps link opens a new tab with the coordinates.

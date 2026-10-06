@@ -3,8 +3,6 @@ import {
   arrayUnion,
   collection,
   doc,
-  getDoc,
-  getDocs,
   increment,
   limit,
   onSnapshot,
@@ -18,10 +16,9 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import { getDownloadURL, ref, uploadBytesResumable, type FirebaseStorage } from 'firebase/storage'
-import { deviceLabel, makeJoinCode, pickColor } from './identity'
-import { haversine } from './geo'
+import { makeJoinCode, pickColor } from './identity'
 import { pathDistance } from './geo'
-import type { GeoPoint, Member, Polaroid, Segment, Trip, TripStatus } from './types'
+import type { GeoPoint, Member, Polaroid, Segment, Trip, TripStatus, Visibility } from './types'
 
 export interface Me {
   id: string
@@ -50,6 +47,8 @@ function toTrip(id: string, data: Record<string, unknown>): Trip {
     distanceM: (data.distanceM as number) ?? 0,
     coverUrl: (data.coverUrl as string | null) ?? null,
     finishedAt: (data.finishedAt as number | null) ?? null,
+    visibility: (data.visibility as Visibility) ?? 'private',
+    memberUids: (data.memberUids as string[]) ?? [],
   }
 }
 
@@ -57,7 +56,7 @@ export async function createTrip(db: Firestore, name: string, me: Me): Promise<T
   // Walks are joined from the list or a link now; the code is kept only as a label.
   const code = makeJoinCode()
   const now = Date.now()
-  const member: Member = { name: me.name, color: pickColor([]), joinedAt: now, lastSeenAt: now, lastPos: null, tracking: false, device: deviceLabel() }
+  const member: Member = { name: me.name, color: pickColor([]), joinedAt: now, lastSeenAt: now, lastPos: null, tracking: false }
   const data = {
     name: name.trim() || 'Untitled walk',
     code,
@@ -66,6 +65,8 @@ export async function createTrip(db: Firestore, name: string, me: Me): Promise<T
     createdAt: now,
     updatedAt: now,
     members: { [me.id]: member },
+    memberUids: [me.id],
+    visibility: 'private' as Visibility,
     pointCount: 0,
     polaroidCount: 0,
     distanceM: 0,
@@ -75,46 +76,11 @@ export async function createTrip(db: Firestore, name: string, me: Me): Promise<T
   return toTrip(refDoc.id, data)
 }
 
-export async function findTripByCode(db: Firestore, code: string): Promise<Trip | null> {
-  const snap = await getDocs(query(tripsCol(db), where('code', '==', code), limit(10)))
-  if (snap.empty) return null
-  const trips = snap.docs.map((d) => toTrip(d.id, d.data()))
-  trips.sort((a, b) => b.createdAt - a.createdAt)
-  return trips[0]
-}
-
-export async function joinTrip(db: Firestore, tripId: string, me: Me): Promise<void> {
-  const tripRef = doc(db, 'trips', tripId)
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(tripRef)
-    if (!snap.exists()) throw new Error('Trip not found')
-    const members = (snap.data().members ?? {}) as Record<string, Member>
-    const now = Date.now()
-    const device = deviceLabel()
-    if (members[me.id]) {
-      tx.update(tripRef, { [`members.${me.id}.name`]: me.name, [`members.${me.id}.lastSeenAt`]: now, [`members.${me.id}.device`]: device, updatedAt: now })
-      return
-    }
-    if (snap.data().status === 'published') throw new Error('This walk is finished, so nobody new can join.')
-    const taken = Object.values(members).map((m) => m.color)
-    const member: Member = { name: me.name, color: pickColor(taken), joinedAt: now, lastSeenAt: now, lastPos: null, tracking: false, device }
-    tx.update(tripRef, { [`members.${me.id}`]: member, updatedAt: now })
-  })
-}
-
-/** Records which kind of device a walker is using now (shown in "are you sure you're X?"). */
-export async function stampDevice(db: Firestore, tripId: string, memberId: string): Promise<void> {
-  await updateDoc(doc(db, 'trips', tripId), { [`members.${memberId}.device`]: deviceLabel() })
-}
-
 /** Ends a walk for everyone. Finished walks can't be resumed, joined or added to. */
 export async function finishTrip(db: Firestore, tripId: string): Promise<void> {
   const now = Date.now()
   await updateDoc(doc(db, 'trips', tripId), { status: 'published', finishedAt: now, updatedAt: now })
 }
-
-/** Joining from further than this from where a walk is happening isn't allowed. */
-export const MAX_JOIN_DISTANCE_M = 10_000
 
 /** Where a walk is (or ended): the most recent position anyone on it reported. */
 export function walkLocation(trip: Trip, segments: Segment[] = []): { lat: number; lng: number } | null {
@@ -127,62 +93,48 @@ export function walkLocation(trip: Trip, segments: Segment[] = []): { lat: numbe
   return best
 }
 
-/**
- * Checks you're near enough to a walk to join it. Resolves with null if OK,
- * or a message explaining why not.
- */
-export async function checkJoinDistance(trip: Trip, segments: Segment[] = []): Promise<string | null> {
-  const where = walkLocation(trip, segments)
-  if (!where) return null // nobody has walked yet: nothing to compare with
-  const here = await new Promise<GeolocationPosition | null>((resolve) =>
-    navigator.geolocation
-      ? navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 12_000, maximumAge: 120_000 })
-      : resolve(null),
-  )
-  if (!here) return 'Turn on location so we can check you are near this walk, then try again.'
-  const d = haversine({ lat: here.coords.latitude, lng: here.coords.longitude }, where)
-  if (d > MAX_JOIN_DISTANCE_M) return `You're about ${Math.round(d / 1000)} km from this walk. You can only join when you're nearby.`
-  return null
-}
-
 export async function renameMember(db: Firestore, tripId: string, me: Me): Promise<void> {
   await updateDoc(doc(db, 'trips', tripId), { [`members.${me.id}.name`]: me.name })
 }
 
-export async function getTrip(db: Firestore, tripId: string): Promise<Trip | null> {
-  const s = await getDoc(doc(db, 'trips', tripId))
-  return s.exists() ? toTrip(s.id, s.data()) : null
-}
-
-export interface KnownWalker {
-  id: string
-  name: string
-  color: string
-  lastSeenAt: number
-  device?: string
-}
-
 /**
- * People you might be, for the "been here before?" picker: the walkers on one
- * walk (when you arrive on a walk link), or on the most recent walks.
+ * The walks you can see: the ones you're on, plus public ones. (Two queries,
+ * because the database rules only allow lists they can prove are readable.)
+ * Walks flagged `hidden` stay out of the list but still open by link.
  */
-export async function listKnownWalkers(db: Firestore, tripId?: string): Promise<KnownWalker[]> {
-  const trips = tripId
-    ? await getDoc(doc(db, 'trips', tripId)).then((s) => (s.exists() ? [toTrip(s.id, s.data())] : []))
-    : await getDocs(query(tripsCol(db), orderBy('updatedAt', 'desc'), limit(8))).then((s) => s.docs.map((d) => toTrip(d.id, d.data())))
-  const byId = new Map<string, KnownWalker>()
-  for (const t of trips)
-    for (const [id, m] of Object.entries(t.members)) {
-      const prev = byId.get(id)
-      if (!prev || m.lastSeenAt > prev.lastSeenAt) byId.set(id, { id, name: m.name, color: m.color, lastSeenAt: m.lastSeenAt ?? 0, device: m.device })
-    }
-  return [...byId.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt).slice(0, 12)
+export function subscribeTrips(db: Firestore, uid: string, cb: (trips: Trip[]) => void, onError?: (e: Error) => void): Unsubscribe {
+  const mine = new Map<string, Trip>()
+  const pub = new Map<string, Trip>()
+  let gotMine = false
+  let gotPub = false
+  const emit = () => {
+    if (!gotMine || !gotPub) return
+    const all = new Map([...pub, ...mine])
+    cb([...all.values()].filter((t) => !(t as Trip & { hidden?: boolean }).hidden).sort((a, b) => b.updatedAt - a.updatedAt))
+  }
+  const fill = (into: Map<string, Trip>) => (snap: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
+    into.clear()
+    for (const d of snap.docs) into.set(d.id, { ...toTrip(d.id, d.data()), hidden: !!d.data().hidden } as Trip)
+  }
+  const u1 = onSnapshot(query(tripsCol(db), where('memberUids', 'array-contains', uid), limit(200)), (snap) => {
+    fill(mine)(snap)
+    gotMine = true
+    emit()
+  }, onError)
+  const u2 = onSnapshot(query(tripsCol(db), where('visibility', '==', 'public'), limit(200)), (snap) => {
+    fill(pub)(snap)
+    gotPub = true
+    emit()
+  }, onError)
+  return () => {
+    u1()
+    u2()
+  }
 }
 
-export function subscribeTrips(db: Firestore, cb: (trips: Trip[]) => void, onError?: (e: Error) => void): Unsubscribe {
-  const q = query(tripsCol(db), orderBy('updatedAt', 'desc'), limit(100))
-  // Walks flagged `hidden` (set by hand in Firestore) stay out of the list but still open by link.
-  return onSnapshot(q, (snap) => cb(snap.docs.filter((d) => !d.data().hidden).map((d) => toTrip(d.id, d.data()))), onError)
+/** Members can make a walk public (anyone can see it) or private (just the people on it). */
+export async function setVisibility(db: Firestore, tripId: string, visibility: Visibility): Promise<void> {
+  await updateDoc(doc(db, 'trips', tripId), { visibility })
 }
 
 export function subscribeTrip(db: Firestore, tripId: string, cb: (trip: Trip | null) => void, onError?: (e: Error) => void): Unsubscribe {
@@ -205,6 +157,8 @@ export function subscribeSegments(db: Firestore, tripId: string, cb: (segments: 
         }
       }),
     ),
+    // A private walk you're not on: nothing to show.
+    () => cb([]),
   )
 }
 
@@ -230,6 +184,8 @@ export function subscribePolaroids(db: Firestore, tripId: string, cb: (polaroids
         }
       }),
     ),
+    // A private walk you're not on: nothing to show.
+    () => cb([]),
   )
 }
 

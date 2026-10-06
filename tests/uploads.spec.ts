@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { as, signUp } from './helpers'
 
 // Photo durability against the local emulators (npm run emulators + npm run dev:emu).
 const PROJECT = 'demo-takeawalk'
@@ -11,15 +12,16 @@ const jpeg = Buffer.from(
   'base64',
 )
 
-async function uploadRaw(name: string) {
-  return fetch(`${STORAGE}?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: jpeg })
+async function uploadRaw(name: string, auth: Record<string, string> = as('m1')) {
+  return fetch(`${STORAGE}?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg', ...auth }, body: jpeg })
 }
 
 test('rules: photos are write-once and records keep their image', async () => {
   const name = `trips/rules-${Date.now()}/polaroids/p1.jpg`
+  expect((await uploadRaw(name, {})).status).toBe(403) // signed out: refused
   expect((await uploadRaw(name)).status).toBe(200) // create: allowed
   expect((await uploadRaw(name)).status).toBe(403) // overwrite: refused
-  const del = await fetch(`${STORAGE}/${encodeURIComponent(name)}`, { method: 'DELETE' })
+  const del = await fetch(`${STORAGE}/${encodeURIComponent(name)}`, { method: 'DELETE', headers: as('m1') })
   expect(del.status).toBe(403) // delete: refused
   expect((await fetch(`${STORAGE}/${encodeURIComponent(name)}`)).status).toBe(200) // still there
 
@@ -27,10 +29,12 @@ test('rules: photos are write-once and records keep their image', async () => {
   // The walk has to exist (and be ongoing) for a photo to be added to it.
   await fetch(`${FS}/trips?documentId=${trip}`, {
     method: 'POST',
-    body: JSON.stringify({ fields: { name: { stringValue: 'rules' }, code: { stringValue: 'RULE' }, status: { stringValue: 'active' } } }),
+    headers: { Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields: { name: { stringValue: 'rules' }, code: { stringValue: 'RULE' }, status: { stringValue: 'active' }, memberUids: { arrayValue: { values: [{ stringValue: 'm1' }] } } } }),
   })
   const make = await fetch(`${FS}/trips/${trip}/polaroids?documentId=p1`, {
     method: 'POST',
+    headers: as('m1'),
     body: JSON.stringify({
       fields: {
         caption: { stringValue: 'hi' },
@@ -47,24 +51,31 @@ test('rules: photos are write-once and records keep their image', async () => {
   const doc = `${FS}/trips/${trip}/polaroids/p1`
   const hijack = await fetch(`${doc}?updateMask.fieldPaths=imageUrl`, {
     method: 'PATCH',
+    headers: as('m1'),
     body: JSON.stringify({ fields: { imageUrl: { stringValue: 'https://evil.example/x.jpg' } } }),
   })
   expect(hijack.status).toBe(403)
+  // Someone else can't change your caption; you can.
+  const theirs = await fetch(`${doc}?updateMask.fieldPaths=caption`, {
+    method: 'PATCH',
+    headers: as('someone-else'),
+    body: JSON.stringify({ fields: { caption: { stringValue: 'not yours' } } }),
+  })
+  expect(theirs.status).toBe(403)
   const recaption = await fetch(`${doc}?updateMask.fieldPaths=caption`, {
     method: 'PATCH',
+    headers: as('m1'),
     body: JSON.stringify({ fields: { caption: { stringValue: 'new words' } } }),
   })
   expect(recaption.status).toBe(200)
-  expect((await fetch(doc, { method: 'DELETE' })).status).toBe(403)
+  expect((await fetch(doc, { method: 'DELETE', headers: as('m1') })).status).toBe(403)
 })
 
 // --- helpers for the app-driven tests
 
 async function phoneOnNewWalk(page: Page, walkName: string) {
   await page.context().addInitScript(() => Object.defineProperty(navigator, 'share', { value: undefined }))
-  await page.goto('/')
-  await page.getByPlaceholder('your name').fill('Saver')
-  await page.getByRole('button', { name: 'Get ready' }).click()
+  await signUp(page, 'saver')
   await page.getByPlaceholder(/walk$/).fill(walkName)
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.locator('.trip-title h1')).toHaveText(walkName)
@@ -175,17 +186,19 @@ test('rules: a finished walk takes no new route or photos, except ones taken bef
   const t = await fetch(`${FS}/trips?documentId=${id}`, {
     method: 'POST',
     headers: { Authorization: 'Bearer owner' },
-    body: JSON.stringify({ fields: { name: { stringValue: 'done' }, code: { stringValue: 'DONE' }, status: { stringValue: 'published' }, finishedAt: { integerValue: String(finishedAt) } } }),
+    body: JSON.stringify({ fields: { name: { stringValue: 'done' }, code: { stringValue: 'DONE' }, status: { stringValue: 'published' }, visibility: { stringValue: 'private' }, finishedAt: { integerValue: String(finishedAt) }, createdBy: { stringValue: 'm1' }, memberUids: { arrayValue: { values: [{ stringValue: 'm1' }] } }, members: { mapValue: { fields: { m1: { mapValue: { fields: { name: { stringValue: 'm' } } } } } } } } }),
   })
   expect(t.status).toBe(200)
   const seg = await fetch(`${FS}/trips/${id}/segments`, {
     method: 'POST',
+    headers: as('m1'),
     body: JSON.stringify({ fields: { memberId: { stringValue: 'm1' }, points: { arrayValue: { values: [] } } } }),
   })
   expect(seg.status).toBe(403)
   const photo = (takenAt: number) =>
     fetch(`${FS}/trips/${id}/polaroids`, {
       method: 'POST',
+      headers: as('m1'),
       body: JSON.stringify({
         fields: {
           caption: { stringValue: '' },
@@ -202,7 +215,31 @@ test('rules: a finished walk takes no new route or photos, except ones taken bef
   // And it can't be reopened.
   const reopen = await fetch(`${FS}/trips/${id}?updateMask.fieldPaths=status`, {
     method: 'PATCH',
+    headers: as('m1'),
     body: JSON.stringify({ fields: { name: { stringValue: 'done' }, status: { stringValue: 'active' } } }),
   })
   expect(reopen.status).toBe(403)
+})
+
+test('rules: private walks are invisible to non-members; public ones are visible to all', async () => {
+  const id = `priv-${Date.now()}`
+  const make = (visibility: string) =>
+    fetch(`${FS}/trips?documentId=${id}-${visibility}`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer owner' },
+      body: JSON.stringify({ fields: { name: { stringValue: visibility }, status: { stringValue: 'active' }, visibility: { stringValue: visibility }, memberUids: { arrayValue: { values: [{ stringValue: 'owner1' }] } } } }),
+    })
+  await make('private')
+  await make('public')
+  expect((await fetch(`${FS}/trips/${id}-private`, { headers: as('owner1') })).status).toBe(200)
+  expect((await fetch(`${FS}/trips/${id}-private`, { headers: as('stranger') })).status).toBe(403)
+  expect((await fetch(`${FS}/trips/${id}-private`)).status).toBe(403)
+  expect((await fetch(`${FS}/trips/${id}-public`, { headers: as('stranger') })).status).toBe(200)
+  // A stranger can't add themselves to a walk directly (joining goes through the server).
+  const sneak = await fetch(`${FS}/trips/${id}-public?updateMask.fieldPaths=memberUids&updateMask.fieldPaths=name&updateMask.fieldPaths=status&updateMask.fieldPaths=visibility`, {
+    method: 'PATCH',
+    headers: as('stranger'),
+    body: JSON.stringify({ fields: { name: { stringValue: 'public' }, status: { stringValue: 'active' }, visibility: { stringValue: 'public' }, memberUids: { arrayValue: { values: [{ stringValue: 'owner1' }, { stringValue: 'stranger' }] } } } }),
+  })
+  expect(sneak.status).toBe(403)
 })

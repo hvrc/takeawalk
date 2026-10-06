@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useServices } from '../services'
 import { createTrip, subscribeTrips } from '../lib/tripApi'
-import { getDeviceId } from '../lib/identity'
+import { signOut } from '../lib/account'
 import { formatDistance, formatWhen } from '../lib/geo'
 import type { Trip } from '../lib/types'
 import Polaroid from '../components/Polaroid'
@@ -11,16 +11,16 @@ import Walker, { WalkerParade } from '../components/Walker'
 import PlaceMap from '../components/PlaceMap'
 import Stroller from '../components/Stroller'
 
-export default function Home({ name, onRename }: { name: string; onRename: (n: string) => void }) {
-  const { db } = useServices()
+export default function Home({ me }: { me: { id: string; name: string } }) {
+  const services = useServices()
+  const { db } = services
   const nav = useNavigate()
   const [trips, setTrips] = useState<Trip[] | null>(null)
   const [walkName, setWalkName] = useState('')
   const [busy, setBusy] = useState<'create' | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
-  const me = { id: getDeviceId(), name }
 
-  useEffect(() => subscribeTrips(db, setTrips, (e) => setMsg(e.message)), [db])
+  useEffect(() => subscribeTrips(db, me.id, setTrips, (e) => setMsg(e.message)), [db, me.id])
 
   // Creating a walk waits for the server so the walk really exists before you
   // start. If that's slow, a pop-up says so and can be closed (you stay here;
@@ -51,9 +51,8 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
     setShowCreating(false)
   }
 
-  const rename = () => {
-    const n = prompt('Your name', name)
-    if (n && n.trim()) onRename(n.trim())
+  const accountMenu = () => {
+    if (confirm(`Signed in as ${me.name}. Sign out?`)) void signOut(services)
   }
 
   return (
@@ -65,9 +64,9 @@ export default function Home({ name, onRename }: { name: string; onRename: (n: s
             take a walk
             <Walker variant="dotted" color="var(--leaf)" className="wordmark-walker" />
           </h1>
-          <button className="name-pill" onClick={rename} aria-label="Change your name">
-            <span className="avatar">{name.slice(0, 1).toUpperCase()}</span>
-            {name}
+          <button className="name-pill" onClick={accountMenu} aria-label={`Signed in as ${me.name}`}>
+            <span className="avatar">{me.name.slice(0, 1).toUpperCase()}</span>
+            {me.name}
           </button>
         </div>
       </header>

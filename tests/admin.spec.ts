@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { signUp } from './helpers'
 
 // Needs the admin server on :8787 against the emulators (see the README's
 // "Develop locally"); the dev server proxies /api to it.
@@ -16,6 +17,7 @@ async function seedWalk(name: string) {
     name: { stringValue: name },
     code: { stringValue: 'ADMN' },
     status: { stringValue: 'active' },
+    visibility: { stringValue: 'public' },
     createdAt: { integerValue: String(now) },
     updatedAt: { integerValue: String(now) },
     polaroidCount: { integerValue: '1' },
@@ -50,10 +52,8 @@ test('admin can sign in, hide and delete walks; nobody else can', async ({ page 
   // Hide: gone from the public list.
   await card.getByRole('button', { name: 'Hide' }).click()
   await expect(card.locator('.badge', { hasText: 'hidden' })).toBeVisible()
-  const home = await page.context().newPage()
-  await home.addInitScript(() => localStorage.setItem('taw.name', 'viewer'))
-  await home.goto('/')
-  await expect(home.getByText('All walks')).toBeVisible()
+  const home = await (await page.context().browser()!.newContext()).newPage()
+  await signUp(home, 'viewer')
   await home.waitForTimeout(1500)
   await expect(home.locator('.trip-card', { hasText: name })).toHaveCount(0)
 

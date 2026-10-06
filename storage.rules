@@ -1,12 +1,13 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Photos are write-once: anyone can add one, nobody can overwrite or
-    // delete one from the app. (The uploader checks for an existing file
+    // Photos are write-once: anyone signed in can add one, nobody can
+    // overwrite or delete one from the app. Reading needs the photo's link,
+    // which has an unguessable token in it and is only stored on the walk. (The uploader checks for an existing file
     // before uploading, so a retry never needs to overwrite.)
     match /trips/{tripId}/polaroids/{file} {
       allow read: if true;
-      allow create: if resource == null
+      allow create: if request.auth != null && resource == null
                     && request.resource.size < 15 * 1024 * 1024
                     && request.resource.contentType.matches('image/.*');
       allow update, delete: if false;

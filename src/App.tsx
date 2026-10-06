@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { getServices, type Services } from './firebase'
 import { ServicesContext } from './services'
-import { adoptIdentity, getName, requestPersistentStorage, setName as persistName } from './lib/identity'
-import { checkJoinDistance, getTrip, listKnownWalkers, type KnownWalker } from './lib/tripApi'
-import NamePrompt from './components/NamePrompt'
+import { requestPersistentStorage } from './lib/identity'
+import { signOut, useAccount } from './lib/account'
+import AuthScreen, { ChooseUsername } from './components/AuthScreen'
 import Home from './pages/Home'
 import Trip from './pages/Trip'
 import Admin from './pages/Admin'
@@ -42,7 +42,6 @@ function RememberPath() {
 export default function App() {
   const [services, setServices] = useState<Services | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [name, setNameState] = useState<string>(() => getName())
 
   useEffect(() => {
     getServices().then((s) => {
@@ -52,36 +51,7 @@ export default function App() {
     }, (e: Error) => setError(e.message))
   }, [])
 
-  const saveName = (n: string) => {
-    persistName(n)
-    requestPersistentStorage()
-    setNameState(n.trim())
-  }
-
-  // On a walk link, offer that walk's people; otherwise people from recent walks.
-  const loadKnown = useCallback(() => {
-    if (!services) return Promise.resolve([] as KnownWalker[])
-    const m = location.pathname.match(/^\/t\/([^/]+)/)
-    return listKnownWalkers(services.db, m?.[1])
-  }, [services])
-
-  // Taking an identity back on a walk link: only when you're near that walk.
-  const adopt = async (w: KnownWalker): Promise<string | null> => {
-    const m = location.pathname.match(/^\/t\/([^/]+)/)
-    if (m && services) {
-      const trip = await getTrip(services.db, m[1])
-      if (trip && trip.status !== 'published') {
-        const tooFar = await checkJoinDistance(trip)
-        if (tooFar) return tooFar
-      }
-    }
-    adoptIdentity(w.id, w.name)
-    requestPersistentStorage()
-    setNameState(w.name)
-    return null
-  }
-
-  // Admin has its own sign-in; it doesn't need a walker name or Firebase.
+  // Admin has its own sign-in; it doesn't need an account or Firebase.
   if (location.pathname.replace(/\/$/, '') === '/admin') return <Admin />
 
   if (error) {
@@ -92,25 +62,43 @@ export default function App() {
       </div>
     )
   }
-  if (!services) {
-    return (
-      <div className="splash">
-        <h1 className="wordmark">
-          take a walk<small>warming up…</small>
-        </h1>
-      </div>
-    )
-  }
-  if (!name) return <NamePrompt onDone={saveName} loadKnown={loadKnown} onAdopt={adopt} />
+  if (!services) return <Warming />
+  return <Signed services={services} />
+}
 
+function Warming() {
+  return (
+    <div className="splash">
+      <h1 className="wordmark">
+        take a walk<small>warming up…</small>
+      </h1>
+    </div>
+  )
+}
+
+function Signed({ services }: { services: Services }) {
+  const account = useAccount(services)
+  useEffect(() => {
+    if (account.status === 'ready') {
+      uploader.setUser(account.uid)
+      requestPersistentStorage()
+    }
+  }, [account])
+
+  if (account.status === 'loading') return <Warming />
+  if (account.status === 'signed-out') return <AuthScreen services={services} />
+  if (account.status === 'needs-username')
+    return <ChooseUsername services={services} suggestion={account.suggestion} onSignOut={() => void signOut(services)} />
+
+  const me = { id: account.uid, name: account.username }
   return (
     <ServicesContext.Provider value={services}>
       <BrowserRouter>
         <RememberPath />
         <Routes>
-          <Route path="/" element={<Home name={name} onRename={saveName} />} />
-          <Route path="/t/:tripId" element={<Trip name={name} />} />
-          <Route path="*" element={<Home name={name} onRename={saveName} />} />
+          <Route path="/" element={<Home me={me} />} />
+          <Route path="/t/:tripId" element={<Trip me={me} />} />
+          <Route path="*" element={<Home me={me} />} />
         </Routes>
       </BrowserRouter>
     </ServicesContext.Provider>

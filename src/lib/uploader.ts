@@ -26,6 +26,13 @@ class Uploader {
   // Photos we couldn't write to IndexedDB; uploaded from memory as a last resort.
   private memoryOnly = new Map<string, PendingUpload>()
   private listeners = new Set<() => void>()
+  private uid: string | null = null
+
+  /** The signed-in account. Photos queued before accounts existed are filed under it. */
+  setUser(uid: string) {
+    this.uid = uid
+    void this.drain()
+  }
 
   start(services: Services) {
     if (this.services) return
@@ -85,7 +92,8 @@ class Uploader {
   }
 
   private async process(item: PendingUpload) {
-    if (!this.services || this.inFlight.has(item.id)) return
+    if (!this.services || !this.uid || this.inFlight.has(item.id)) return
+    if (item.memberId !== this.uid) item = { ...item, memberId: this.uid }
     this.inFlight.add(item.id)
     const { db } = this.services
     this.setStatus(item, { failed: false })

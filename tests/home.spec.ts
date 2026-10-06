@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test'
+import { signUp } from './helpers'
 
 test('a slow walk creation shows a pop-up that can be closed', async ({ page }) => {
   await page.goto('/')
   await page.screenshot({ path: 'test-results/shots/00-welcome.png' })
-  await expect(page.getByText('What should we call you?')).toHaveCount(0)
-  await page.getByPlaceholder('your name').fill('Slowpoke')
-  await page.getByRole('button', { name: 'Get ready' }).click()
-  await expect(page.getByText('All walks')).toBeVisible()
+  await signUp(page, 'slowpoke')
   await page.screenshot({ path: 'test-results/shots/00b-home.png' })
 
   // Hold back Firestore's write channel so creating the walk is slow.

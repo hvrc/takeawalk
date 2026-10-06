@@ -1,52 +1,84 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // takeawalk is intentionally public: anyone can read every trip and
-    // anyone can write to one. The rules below only keep the data shaped
-    // sanely so a stray client can't fill the database with junk.
+    // Walks are private to the people on them unless someone on the walk
+    // makes it public. You need an account to create, join or add to one.
+    // Joining a private walk goes through the server (it has the link).
 
     function isString(v, max) {
       return v is string && v.size() <= max;
     }
-
+    function signedIn() {
+      return request.auth != null;
+    }
     function trip(tripId) {
       return get(/databases/$(database)/documents/trips/$(tripId)).data;
     }
+    function canSee(t) {
+      return t.get('visibility', 'private') == 'public'
+          || (signedIn() && request.auth.uid in t.get('memberUids', []));
+    }
+    function isMember(t) {
+      return signedIn() && request.auth.uid in t.get('memberUids', []);
+    }
+
+    // Public profile: just the username. Written by the server.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+    match /usernames/{name} {
+      allow read, write: if false;
+    }
 
     match /trips/{tripId} {
-      allow read: if true;
-      allow create: if isString(request.resource.data.name, 80)
-                    && isString(request.resource.data.code, 12)
-                    && request.resource.data.status in ['active', 'published'];
-      // A finished walk stays finished.
-      allow update: if isString(request.resource.data.name, 80)
+      allow read: if canSee(resource.data);
+      allow create: if signedIn()
+                    && isString(request.resource.data.name, 80)
+                    && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.memberUids == [request.auth.uid]
+                    && request.resource.data.members.keys().hasOnly([request.auth.uid])
+                    && request.resource.data.visibility in ['private', 'public']
+                    && request.resource.data.status == 'active';
+      // Members can update the walk, but only their own entry in `members`;
+      // who's on it changes only through the server. Finished stays finished.
+      allow update: if isMember(resource.data)
+                    && isString(request.resource.data.name, 80)
                     && request.resource.data.status in ['active', 'published']
+                    && request.resource.data.visibility in ['private', 'public']
+                    && request.resource.data.memberUids == resource.data.memberUids
+                    && request.resource.data.createdBy == resource.data.createdBy
+                    && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
                     && !(resource.data.status == 'published' && request.resource.data.status != 'published');
       allow delete: if false;
 
       match /segments/{segmentId} {
-        allow read: if true;
-        // No new route on a finished walk.
-        allow create, update: if request.resource.data.points is list
-                              && request.resource.data.points.size() <= 2000
-                              && isString(request.resource.data.memberId, 64)
-                              && trip(tripId).status == 'active';
+        allow read: if canSee(trip(tripId));
+        // Your own route, on an ongoing walk you're on.
+        allow create, update: if isMember(trip(tripId))
+                              && trip(tripId).status == 'active'
+                              && request.resource.data.memberId == request.auth.uid
+                              && request.resource.data.points is list
+                              && request.resource.data.points.size() <= 2000;
         allow delete: if false;
       }
 
       match /polaroids/{polaroidId} {
-        allow read: if true;
-        allow create: if isString(request.resource.data.caption, 120)
+        allow read: if canSee(trip(tripId));
+        allow create: if isMember(trip(tripId))
+                      && request.resource.data.memberId == request.auth.uid
+                      && isString(request.resource.data.caption, 120)
                       && isString(request.resource.data.description, 2000)
-                      && isString(request.resource.data.memberId, 64)
                       && request.resource.data.lat is number
                       && request.resource.data.lng is number
                       // No new photos on a finished walk, except ones taken before it
                       // finished that are still uploading (never lose a photo).
                       && (trip(tripId).status == 'active'
                           || request.resource.data.takenAt <= trip(tripId).get('finishedAt', 0));
-        // Only the words can change; the photo, place and author are fixed.
-        allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption', 'description'])
+        // Only the person who took it, and only the words.
+        allow update: if signedIn()
+                      && resource.data.memberId == request.auth.uid
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption', 'description'])
                       && isString(request.resource.data.caption, 120)
                       && isString(request.resource.data.description, 2000);
         allow delete: if false;
