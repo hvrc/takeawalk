@@ -621,11 +621,13 @@ textarea.field { resize: none; line-height: 1.4; }
 
 /* ---------- walk screen v2: dock is the base, details float above it ---------- */
 .topbar { align-items: center; }
-.title-members { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
-.title-members .chip { padding: 1px 8px 1px 4px; font-size: 11.5px; box-shadow: none; }
-.title-members .chip .dot { width: 8px; height: 8px; }
-.title-members .chip.me { background: var(--ochre); }
-.title-members .chip .walking { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: pulse 1.4s infinite; }
+.trip-title { text-align: center; align-items: center; }
+.trip-title h1 { max-width: 100%; }
+.trip-title .sub { flex-wrap: wrap; justify-content: center; row-gap: 5px; column-gap: 6px; }
+.trip-title .member-chip { padding: 1px 8px 1px 4px; font-size: 11.5px; box-shadow: none; color: var(--ink); }
+.trip-title .member-chip .dot { width: 8px; height: 8px; }
+.trip-title .member-chip.me { background: var(--ochre); }
+.trip-title .member-chip .walking { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: pulse 1.4s infinite; }
 .dock { gap: 6px; }
 .dock-btn { width: 42px; height: 42px; }
 .dock-btn svg { width: 19px; height: 19px; }

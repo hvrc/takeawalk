@@ -479,18 +479,17 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
                 <span className={`vis-chip ${trip.visibility}`}>{trip.visibility}</span>
               )
             ) : null}
+            {/* Name tags sit on the same line and wrap to a second only if they need to. */}
+            {trip
+              ? Object.entries(trip.members).map(([id, m]) => (
+                  <span key={id} className={`chip member-chip ${id === me.id ? 'me' : ''}`}>
+                    <span className="dot" style={{ background: m.color }} />
+                    {id === me.id ? 'you' : m.name}
+                    {isWalking(m) ? <span className="walking" /> : null}
+                  </span>
+                ))
+              : null}
           </div>
-          {trip ? (
-            <div className="title-members">
-              {Object.entries(trip.members).map(([id, m]) => (
-                <span key={id} className={`chip ${id === me.id ? 'me' : ''}`}>
-                  <span className="dot" style={{ background: m.color }} />
-                  {id === me.id ? 'you' : m.name}
-                  {isWalking(m) ? <span className="walking" /> : null}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
         <button className="btn-icon" onClick={shareCode} aria-label="Share invite">
           <IconShare />

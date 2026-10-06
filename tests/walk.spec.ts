@@ -80,8 +80,8 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   await b.page.screenshot({ path: `${SHOTS}/04-private-join.png` })
   await b.page.getByRole('button', { name: `Join as ${b.username}` }).click()
   await expect(b.page.locator('.trip-title h1')).toHaveText(TRIP)
-  await expect(b.page.locator('.title-members .chip')).toHaveCount(2)
-  await expect(a.page.locator('.title-members .chip')).toHaveCount(2)
+  await expect(b.page.locator('.trip-title .member-chip')).toHaveCount(2)
+  await expect(a.page.locator('.trip-title .member-chip')).toHaveCount(2)
   // B sees A's polaroid
   await expect(b.page.locator('.pin-photo')).toHaveCount(1)
 

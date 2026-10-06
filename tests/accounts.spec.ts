@@ -85,5 +85,5 @@ test('walks are private until made public; far-away people can’t join', async 
   await far.goto(url)
   await far.getByRole('button', { name: `Join as ${farName}` }).click()
   await expect(far.locator('.toast')).toContainText('km from this walk', { timeout: 20_000 })
-  await expect(a.locator('.title-members .chip')).toHaveCount(1)
+  await expect(a.locator('.trip-title .member-chip')).toHaveCount(1)
 })
