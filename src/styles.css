@@ -641,3 +641,57 @@ textarea.field { resize: none; line-height: 1.4; }
 
 .map-loading.no-map { pointer-events: auto; padding: 0 32px; text-align: center; }
 .map-loading.no-map small { max-width: 320px; text-transform: none; letter-spacing: 0; font-weight: 500; font-stretch: 100%; line-height: 1.45; color: var(--ink-2); }
+
+/* ---------- themes ---------- */
+/* Each theme just swaps the colour tokens; maps get a matching palette in mapStyle.ts. */
+:root { --field: #fcf8ee; --error-bg: #f6dccf; }
+[data-theme="night"] {
+  --paper: #1c1a17; --paper-2: #24211d; --card: #2a2622; --field: #211e1b;
+  --ink: #ede3cc; --ink-2: #b3a891; --ink-3: #7f7666; --line: rgba(237, 227, 204, 0.2);
+  --chartreuse: #3f4b2b; --ochre: #c6912f; --leaf: #3f7d48; --brick: #c2533d; --slate: #5e7f86;
+  --accent-ink: #fbf5e6; --error-bg: #4a2a22;
+  --tex-paper: none;
+  color-scheme: dark;
+}
+[data-theme="blueprint"] {
+  --paper: #1c4a82; --paper-2: #21548f; --card: #245a98; --field: #1f4f8a;
+  --ink: #f1f6ff; --ink-2: #c3d4ee; --ink-3: #8fabd3; --line: rgba(241, 246, 255, 0.25);
+  --chartreuse: #2c6db0; --ochre: #f2c14e; --leaf: #2f8f5e; --brick: #e2604b; --slate: #7fa6d6;
+  --accent-ink: #ffffff; --error-bg: #5a3346;
+  --tex-paper: none;
+  color-scheme: dark;
+}
+[data-theme="riso"] {
+  --paper: #f6f0e6; --paper-2: #efe6d8; --card: #fffaf2; --field: #ffffff;
+  --ink: #2b48ad; --ink-2: #5a6cbf; --ink-3: #96a3d9; --line: rgba(43, 72, 173, 0.2);
+  --chartreuse: #ffe08f; --ochre: #ffcd4d; --leaf: #2a9d7f; --brick: #ff5c8a; --slate: #6a8fd8;
+  --accent-ink: #ffffff; --error-bg: #ffd6e2;
+}
+[data-theme="newsprint"] {
+  --paper: #ecebe6; --paper-2: #e2e1dc; --card: #f7f7f3; --field: #ffffff;
+  --ink: #141414; --ink-2: #4d4d4d; --ink-3: #8c8c8c; --line: rgba(20, 20, 20, 0.18);
+  --chartreuse: #d7d6d0; --ochre: #c9c8c2; --leaf: #2e2e2e; --brick: #141414; --slate: #7a7a7a;
+  --accent-ink: #ffffff; --error-bg: #e0dfda;
+}
+.field { background: var(--field); }
+.error-box { background: var(--error-bg); }
+/* Polaroids are physical prints: always cream with dark ink, whatever the theme. */
+.polaroid, .polaroid-back, .fullview-bar { --ink: #2b2622; --ink-2: #5f564d; --ink-3: #9d9282; }
+.polaroid-back { --card: #fbf8f0; --field: #fbf8f0; }
+
+.theme-btn-wrap { position: relative; display: inline-flex; }
+.theme-btn svg { width: 20px; height: 20px; }
+.theme-label {
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 30;
+  background: var(--ink); color: var(--paper); padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  pointer-events: none; animation: fade 0.15s ease;
+}
+.auth-theme { position: fixed; top: calc(14px + var(--sat)); right: 14px; z-index: 5; }
+.home-header-actions { display: flex; align-items: center; gap: 8px; }
+.badge.deleted { background: var(--brick); color: var(--accent-ink); }
+.delete-walk { font-size: 12px; justify-self: center; }
+/* the sign-in page fills the screen so its card sits in the true middle */
+.auth-page > .splash { min-height: 100dvh; padding-top: calc(24px + var(--sat)); padding-bottom: calc(24px + var(--sab)); gap: 14px; }
+.guest-btn { width: 100%; max-width: 360px; text-transform: none; letter-spacing: 0; font-stretch: 100%; }
+[data-theme="night"] .error-box, [data-theme="blueprint"] .error-box { color: var(--ink); }
+.location-note { color: var(--ink); font-weight: 600; max-width: 360px; margin: 0 auto; }

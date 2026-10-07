@@ -28,6 +28,8 @@ export interface Trip {
   /** Set when the walk is finished; after that nothing can be added. */
   finishedAt?: number | null
   visibility: Visibility
+  /** Soft-deleted by someone on it: hidden everywhere, restorable from /admin. */
+  deleted?: boolean
   /** Account ids of the people on the walk (the keys of `members` that are accounts). */
   memberUids: string[]
 }

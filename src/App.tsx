@@ -88,9 +88,9 @@ function Signed({ services }: { services: Services }) {
   if (account.status === 'loading') return <Warming />
   if (account.status === 'signed-out') return <AuthScreen services={services} />
   if (account.status === 'needs-username')
-    return <ChooseUsername services={services} suggestion={account.suggestion} onSignOut={() => void signOut(services)} />
+    return <ChooseUsername services={services} suggestion={account.suggestion} guest={account.guest} onSignOut={() => void signOut(services)} />
 
-  const me = { id: account.uid, name: account.username }
+  const me = { id: account.uid, name: account.username, guest: account.guest }
   return (
     <ServicesContext.Provider value={services}>
       <BrowserRouter>

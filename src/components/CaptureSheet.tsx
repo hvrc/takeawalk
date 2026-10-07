@@ -15,9 +15,13 @@ interface Props {
   onRetake: () => void
   onCancel: () => void
   onSave: (caption: string, description: string) => void
+  /** Still waiting for a location to pin it at. */
+  locating?: boolean
+  locationNote?: string
+  onRetryLocation?: () => void
 }
 
-export default function CaptureSheet({ photo, memberName, color, lat, lng, onRetake, onCancel, onSave }: Props) {
+export default function CaptureSheet({ photo, memberName, color, lat, lng, onRetake, onCancel, onSave, locating, locationNote, onRetryLocation }: Props) {
   const [caption, setCaption] = useState('')
   const [description, setDescription] = useState('')
   const [flipped, setFlipped] = useState(false)
@@ -72,10 +76,23 @@ export default function CaptureSheet({ photo, memberName, color, lat, lng, onRet
         </div>
       </div>
       <p className="sheet-hint">{flipped ? 'Anything you write here goes on the back.' : 'Flip it over to write on the back.'}</p>
+      {locationNote ? <p className="sheet-hint location-note">{locationNote}</p> : null}
       <div className="sheet-actions">
-        <button className="btn btn-accent" onClick={() => onSave(caption.trim(), description.trim())}>
-          Pin it to the map
-        </button>
+        {onRetryLocation ? (
+          <button className="btn btn-accent" onClick={onRetryLocation}>
+            Try finding my location again
+          </button>
+        ) : (
+          <button className={`btn btn-accent ${locating ? 'busy' : ''}`} onClick={() => onSave(caption.trim(), description.trim())} disabled={locating || lat == null}>
+            {locating ? (
+              <>
+                <span className="spinner sm" aria-hidden="true" /> Finding where you are…
+              </>
+            ) : (
+              'Pin it to the map'
+            )}
+          </button>
+        )}
         <button className="btn btn-ghost" onClick={onRetake}>
           Retake
         </button>

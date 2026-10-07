@@ -6,6 +6,7 @@ import {
   onAuthStateChanged,
   type AuthCredential,
   signInWithEmailAndPassword,
+  signInAnonymously,
   signInWithRedirect,
   signOut as fbSignOut,
   type Auth,
@@ -16,8 +17,8 @@ import type { Services } from '../firebase'
 export type Account =
   | { status: 'loading' }
   | { status: 'signed-out' }
-  | { status: 'needs-username'; uid: string; suggestion: string }
-  | { status: 'ready'; uid: string; username: string }
+  | { status: 'needs-username'; uid: string; suggestion: string; guest: boolean }
+  | { status: 'ready'; uid: string; username: string; guest: boolean }
 
 /** Who's signed in, and their username (from users/{uid}, written by the server). */
 export function useAccount({ auth, db }: { auth: Auth; db: Firestore }): Account {
@@ -32,10 +33,10 @@ export function useAccount({ auth, db }: { auth: Auth; db: Firestore }): Account
         doc(db, 'users', user.uid),
         (snap) => {
           const username = snap.exists() ? (snap.data().username as string) : ''
-          if (username) setState({ status: 'ready', uid: user.uid, username })
-          else setState({ status: 'needs-username', uid: user.uid, suggestion: suggest(user.displayName || user.email || '') })
+          if (username) setState({ status: 'ready', uid: user.uid, username, guest: user.isAnonymous })
+          else setState({ status: 'needs-username', uid: user.uid, suggestion: suggest(user.displayName || user.email || ''), guest: user.isAnonymous })
         },
-        () => setState({ status: 'needs-username', uid: user.uid, suggestion: suggest(user.displayName || user.email || '') }),
+        () => setState({ status: 'needs-username', uid: user.uid, suggestion: suggest(user.displayName || user.email || ''), guest: user.isAnonymous }),
       )
     })
     return () => {
@@ -138,3 +139,8 @@ export async function joinWalk({ auth }: Services, tripId: string) {
 }
 
 export const signOut = ({ auth }: Services) => fbSignOut(auth)
+
+/** Carry on without an account: just a (unique) username. Their walks are always public. */
+export async function continueAsGuest({ auth }: Services) {
+  await signInAnonymously(auth)
+}

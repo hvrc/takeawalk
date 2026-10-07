@@ -57,12 +57,15 @@ test('admin can sign in, hide and delete walks; nobody else can', async ({ page 
   await home.waitForTimeout(1500)
   await expect(home.locator('.trip-card', { hasText: name })).toHaveCount(0)
 
-  // Delete: walk, route, photo record and photo file all gone.
+  // Delete only marks it deleted: the walk, route, photo record and photo file all stay.
   await card.getByRole('button', { name: 'Delete' }).click()
   await card.getByRole('button', { name: 'Delete it' }).click()
-  await expect(page.locator('.admin-walk', { hasText: name })).toHaveCount(0)
-  expect(await exists(`${FS}/trips/${walk.id}`)).toBe(false)
-  expect(await exists(`${FS}/trips/${walk.id}/segments/s1`)).toBe(false)
-  expect(await exists(`${FS}/trips/${walk.id}/polaroids/p1`)).toBe(false)
-  expect(await exists(`${STORAGE}/${encodeURIComponent(walk.image)}`)).toBe(false)
+  await expect(card.locator('.badge.deleted')).toBeVisible()
+  expect(await exists(`${FS}/trips/${walk.id}`)).toBe(true)
+  expect(await exists(`${FS}/trips/${walk.id}/segments/s1`)).toBe(true)
+  expect(await exists(`${FS}/trips/${walk.id}/polaroids/p1`)).toBe(true)
+  expect(await exists(`${STORAGE}/${encodeURIComponent(walk.image)}`)).toBe(true)
+  // And it comes back.
+  await card.getByRole('button', { name: 'Restore' }).click()
+  await expect(card.locator('.badge.deleted')).toHaveCount(0)
 })

@@ -133,9 +133,9 @@ test('a photo survives a failed upload, leaving the walk and a reload', async ({
 
   // Leave the walk and reload the whole app: the photo is still queued on the phone.
   await page.getByRole('button', { name: 'Back' }).click()
-  await expect(page.getByText('Public walks')).toBeVisible()
+  await expect(page.getByText('Public walks', { exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.getByText('Public walks')).toBeVisible()
+  await expect(page.getByText('Public walks', { exact: true })).toBeVisible()
   expect(await queued(page)).toBe(1)
   expect(await polaroidsInFirestore(tripId)).toHaveLength(0)
 
@@ -242,4 +242,52 @@ test('rules: private walks are invisible to non-members; public ones are visible
     body: JSON.stringify({ fields: { name: { stringValue: 'public' }, status: { stringValue: 'active' }, visibility: { stringValue: 'public' }, memberUids: { arrayValue: { values: [{ stringValue: 'owner1' }, { stringValue: 'stranger' }] } } } }),
   })
   expect(sneak.status).toBe(403)
+})
+
+test('a photo is pinned where it was taken: its own GPS, else a fresh reading, never a stale one', async ({ page }) => {
+  await phoneOnNewWalk(page, `where ${Date.now().toString(36).slice(-4)}`)
+  // A photo that carries its own location (43.6600, -79.3900): pinned there, not where the phone is.
+  await page.getByRole('button', { name: 'Take a polaroid' }).click()
+  await page.locator('input[type=file]').setInputFiles('tests/fixtures/gps.jpg')
+  await expect(page.getByText('Pinned where the photo was taken')).toBeVisible()
+  await page.getByRole('button', { name: 'Pin it to the map' }).click()
+  // Move the phone ~1 km away, as if the GPS reading were stale, and take one without GPS in it.
+  await page.context().setGeolocation({ latitude: 43.6532, longitude: -79.3700, accuracy: 6 })
+  await page.getByRole('button', { name: 'Take a polaroid' }).click()
+  await page.locator('input[type=file]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: await fakePhoto(page) })
+  await page.getByRole('button', { name: 'Pin it to the map' }).click()
+  const tripId = page.url().split('/t/')[1]
+  await expect.poll(async () => (await polaroidsInFirestore(tripId)).length, { timeout: 30_000 }).toBe(2)
+  const pins = (await polaroidsInFirestore(tripId)).map((p) => ({
+    lat: Number((p.fields.lat as { doubleValue?: number }).doubleValue),
+    lng: Number((p.fields.lng as { doubleValue?: number }).doubleValue),
+  }))
+  expect(pins.some((p) => Math.abs(p.lat - 43.66) < 1e-4 && Math.abs(p.lng + 79.39) < 1e-4)).toBe(true) // from the photo
+  expect(pins.some((p) => Math.abs(p.lat - 43.6532) < 1e-4 && Math.abs(p.lng + 79.37) < 1e-4)).toBe(true) // fresh reading, not the old spot
+})
+
+test('rules: a guest (no account) can only make public walks', async () => {
+  const walk = (uid: string, visibility: string) => ({
+    fields: {
+      name: { stringValue: 'g' },
+      status: { stringValue: 'active' },
+      visibility: { stringValue: visibility },
+      createdBy: { stringValue: uid },
+      memberUids: { arrayValue: { values: [{ stringValue: uid }] } },
+      members: { mapValue: { fields: { [uid]: { mapValue: { fields: { name: { stringValue: 'g' } } } } } } },
+    },
+  })
+  const make = (id: string, uid: string, vis: string, provider: string) =>
+    fetch(`${FS}/trips?documentId=${id}`, { method: 'POST', headers: as(uid, provider), body: JSON.stringify(walk(uid, vis)) })
+  const t = Date.now()
+  expect((await make(`g-priv-${t}`, 'guest1', 'private', 'anonymous')).status).toBe(403)
+  expect((await make(`g-pub-${t}`, 'guest1', 'public', 'anonymous')).status).toBe(200)
+  expect((await make(`a-priv-${t}`, 'acct1', 'private', 'password')).status).toBe(200)
+  // ...and can't switch one to private later.
+  const flip = await fetch(`${FS}/trips/g-pub-${t}?updateMask.fieldPaths=visibility`, {
+    method: 'PATCH',
+    headers: as('guest1', 'anonymous'),
+    body: JSON.stringify({ fields: { visibility: { stringValue: 'private' } } }),
+  })
+  expect(flip.status).toBe(403)
 })

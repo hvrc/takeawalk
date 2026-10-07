@@ -72,12 +72,9 @@ test('two walkers share a trip, pin polaroids, publish', async ({ browser }) => 
   // Upload finishes and the pending pin becomes the real one.
   await expect(a.page.locator('.pin-photo.pending')).toHaveCount(0, { timeout: 30_000 })
 
-  // --- B can't see A's private walk in the list, but joins from A's link
+  // --- B finds A's (public) walk in the list and joins it
   const b = await newPhone(browser, 'Friend')
-  await expect(b.page.locator('.trip-card', { hasText: TRIP })).toHaveCount(0)
-  await b.page.goto(a.page.url())
-  await expect(b.page.getByText('This walk is private')).toBeVisible()
-  await b.page.screenshot({ path: `${SHOTS}/04-private-join.png` })
+  await b.page.locator('.trip-card', { hasText: TRIP }).click()
   await b.page.getByRole('button', { name: `Join as ${b.username}` }).click()
   await expect(b.page.locator('.trip-title h1')).toHaveText(TRIP)
   await expect(b.page.locator('.trip-title .member-chip')).toHaveCount(2)

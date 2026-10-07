@@ -5,7 +5,10 @@ import { Map as MLMap, Marker, setWorkerUrl, type GeoJSONSource, type LngLatBoun
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { GeoPoint, Member, Polaroid, Segment } from '../lib/types'
 import { boundsOf } from '../lib/geo'
-import { inkStyle, PAPER, registerPatterns } from '../lib/mapStyle'
+import { inkStyle, MAP_PALETTES, registerPatterns } from '../lib/mapStyle'
+import { getTheme, useTheme } from '../lib/theme'
+
+type FeatureCollection = Parameters<GeoJSONSource['setData']>[0] & { type: 'FeatureCollection' }
 import Walker from './Walker'
 
 setWorkerUrl(maplibreWorkerUrl)
@@ -47,6 +50,8 @@ export default function MapView({
   // Covers the blank map until the style and first tiles have rendered.
   const [ready, setReady] = useState(false)
   const [noMap, setNoMap] = useState(false)
+  const routeData = useRef<FeatureCollection>({ type: 'FeatureCollection', features: [] })
+  const theme = useTheme()
   const mapRef = useRef<MLMap | null>(null)
   const loaded = useRef(false)
   const readyQueue = useRef<Array<() => void>>([])
@@ -70,7 +75,7 @@ export default function MapView({
     try {
       map = new MLMap({
         container: el.current,
-        style: inkStyle(),
+        style: inkStyle(MAP_PALETTES[getTheme()]),
         center: [0, 20],
         zoom: 1.5,
         attributionControl: { compact: true },
@@ -84,26 +89,32 @@ export default function MapView({
       return
     }
     map.touchZoomRotate.disableRotation()
-    registerPatterns(map)
+    registerPatterns(map, getTheme)
     map.once('idle', () => setReady(true))
     // Never leave the overlay up forever on a flaky connection.
     const readyTimeout = setTimeout(() => setReady(true), 20_000)
+    // Route lines live on top of the base style; setStyle (theme switch) drops
+    // them, so they're re-added every time a style loads.
+    map.on('style.load', () => {
+      if (!map.getSource('routes')) map.addSource('routes', { type: 'geojson', data: routeData.current })
+      if (!map.getLayer('route-casing'))
+        map.addLayer({
+          id: 'route-casing',
+          type: 'line',
+          source: 'routes',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': MAP_PALETTES[getTheme()].paper, 'line-width': 8, 'line-opacity': 0.9 },
+        })
+      if (!map.getLayer('route-line'))
+        map.addLayer({
+          id: 'route-line',
+          type: 'line',
+          source: 'routes',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': ['get', 'color'], 'line-width': 4.5 },
+        })
+    })
     map.on('load', () => {
-      map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
-      map.addLayer({
-        id: 'route-casing',
-        type: 'line',
-        source: 'routes',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': PAPER, 'line-width': 8, 'line-opacity': 0.9 },
-      })
-      map.addLayer({
-        id: 'route-line',
-        type: 'line',
-        source: 'routes',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ['get', 'color'], 'line-width': 4.5 },
-      })
       loaded.current = true
       const q = readyQueue.current
       readyQueue.current = []
@@ -128,24 +139,30 @@ export default function MapView({
     }
   }, [])
 
+  // Theme switch: redraw the base map; the style.load handler puts the routes back.
+  const firstTheme = useRef(theme)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || theme === firstTheme.current) return
+    firstTheme.current = theme
+    map.setStyle(inkStyle(MAP_PALETTES[theme]))
+  }, [theme])
+
   // Routes
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    const apply = () => {
-      const src = map.getSource('routes') as GeoJSONSource | undefined
-      if (!src) return
-      src.setData({
-        type: 'FeatureCollection',
-        features: segments
-          .filter((s) => s.points.length >= 2)
-          .map((s) => ({
-            type: 'Feature',
-            properties: { color: s.color, memberId: s.memberId },
-            geometry: { type: 'LineString', coordinates: s.points.map((p) => [p.lng, p.lat]) },
-          })),
-      })
+    routeData.current = {
+      type: 'FeatureCollection',
+      features: segments
+        .filter((s) => s.points.length >= 2)
+        .map((s) => ({
+          type: 'Feature',
+          properties: { color: s.color, memberId: s.memberId },
+          geometry: { type: 'LineString', coordinates: s.points.map((p) => [p.lng, p.lat]) },
+        })),
     }
+    const apply = () => (map.getSource('routes') as GeoJSONSource | undefined)?.setData(routeData.current)
     whenReady(apply)
   }, [segments])
 

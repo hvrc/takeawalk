@@ -6,10 +6,10 @@ export const STORAGE = `http://127.0.0.1:9199/v0/b/${PROJECT}.appspot.com/o`
 export const OWNER = { Authorization: 'Bearer owner' } // emulator admin: skips rules
 
 /** An unsigned ID token the emulators accept: lets a REST call act as `uid` under the rules. */
-export function as(uid: string) {
+export function as(uid: string, provider = 'password') {
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
   const now = Math.floor(Date.now() / 1000)
-  const jwt = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ sub: uid, user_id: uid, aud: PROJECT, iss: `https://securetoken.google.com/${PROJECT}`, iat: now, exp: now + 3600, auth_time: now, firebase: { sign_in_provider: 'password' } })}.`
+  const jwt = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ sub: uid, user_id: uid, aud: PROJECT, iss: `https://securetoken.google.com/${PROJECT}`, iat: now, exp: now + 3600, auth_time: now, firebase: { sign_in_provider: provider } })}.`
   return { Authorization: `Bearer ${jwt}` }
 }
 
@@ -24,6 +24,6 @@ export async function signUp(page: Page, name: string, password = 'walking1') {
   await page.getByLabel('Email').fill(`${username}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Make my account' }).click()
-  await expect(page.getByText('Public walks')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText('Public walks', { exact: true })).toBeVisible({ timeout: 20_000 })
   return username
 }

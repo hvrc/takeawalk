@@ -6,6 +6,8 @@ interface AdminWalk {
   name: string
   status: 'active' | 'published'
   hidden: boolean
+  deleted: boolean
+  deletedBy: string | null
   updatedAt: number
   polaroidCount: number
   members: Array<{ name: string; color: string }>
@@ -83,7 +85,20 @@ export default function Admin() {
     setConfirmDelete(null)
     try {
       await api(`/api/admin/walks/${w.id}`, token, { method: 'DELETE' })
-      setMsg(`Deleted “${w.name}”.`)
+      setMsg(`Deleted “${w.name}”. Nothing is gone: you can restore it here.`)
+      await load()
+    } catch (e) {
+      setMsg((e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const restore = async (w: AdminWalk) => {
+    setBusy(w.id)
+    try {
+      await api(`/api/admin/walks/${w.id}/restore`, token, { method: 'POST' })
+      setMsg(`Restored “${w.name}”.`)
       await load()
     } catch (e) {
       setMsg((e as Error).message)
@@ -138,11 +153,12 @@ export default function Admin() {
       ) : (
         <div className="trip-list">
           {walks.map((w) => (
-            <div key={w.id} className={`card admin-walk ${w.hidden ? 'is-hidden' : ''}`}>
+            <div key={w.id} className={`card admin-walk ${w.hidden || w.deleted ? 'is-hidden' : ''}`}>
               <div className="admin-walk-head">
                 <h3>
                   <a href={`/t/${w.id}`}>{w.name}</a>
                 </h3>
+                {w.deleted ? <span className="badge deleted">deleted{w.deletedBy ? ` by ${w.deletedBy}` : ''}</span> : null}
                 {w.hidden ? <span className="badge">hidden</span> : null}
                 {w.status === 'published' ? <span className="badge">finished</span> : null}
               </div>
@@ -154,7 +170,7 @@ export default function Admin() {
               {confirmDelete?.id === w.id ? (
                 <div className="admin-confirm">
                   <p>
-                    Delete <b>{w.name}</b>, its route and all {w.polaroidCount} photos?
+                    Delete <b>{w.name}</b>? It disappears from the app, but its route and {w.polaroidCount} photos are kept and you can restore it.
                   </p>
                   <div className="row">
                     <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(null)}>
@@ -170,9 +186,15 @@ export default function Admin() {
                   <button className="btn btn-ghost btn-sm" onClick={() => toggleHidden(w)} disabled={busy === w.id}>
                     {w.hidden ? 'Show' : 'Hide'}
                   </button>
-                  <button className="btn btn-ghost btn-sm danger" onClick={() => setConfirmDelete(w)} disabled={busy === w.id}>
-                    Delete
-                  </button>
+                  {w.deleted ? (
+                    <button className="btn btn-sm" onClick={() => restore(w)} disabled={busy === w.id}>
+                      Restore
+                    </button>
+                  ) : (
+                    <button className="btn btn-ghost btn-sm danger" onClick={() => setConfirmDelete(w)} disabled={busy === w.id}>
+                      Delete
+                    </button>
+                  )}
                 </div>
               )}
             </div>

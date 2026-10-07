@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Map as MLMap } from 'maplibre-gl'
-import { inkStyle, registerPatterns } from '../lib/mapStyle'
+import { inkStyle, MAP_PALETTES, registerPatterns } from '../lib/mapStyle'
+import { getTheme, useTheme } from '../lib/theme'
 
 /**
  * A small, still map of somewhere nice on the home page. Each time the app
@@ -66,6 +67,8 @@ export default function PlaceMap() {
   const [index] = useState(placeIndexForThisLoad)
   const [place, setPlace] = useState<Place>(() => (index === RANDOM_SLOT ? randomPoint() : PLACES[index]))
   const [ready, setReady] = useState(false)
+  const mapRef = useRef<MLMap | null>(null)
+  const theme = useTheme()
 
   useEffect(() => {
     if (!el.current) return
@@ -74,7 +77,7 @@ export default function PlaceMap() {
     try {
       map = new MLMap({
         container: el.current,
-        style: inkStyle(),
+        style: inkStyle(MAP_PALETTES[getTheme()]),
         center: [place.lng, place.lat],
         zoom: place.zoom,
         // Drag to pan, pinch or double-tap to zoom. The wheel still scrolls the page.
@@ -88,7 +91,8 @@ export default function PlaceMap() {
       return
     }
     map.touchZoomRotate.disableRotation()
-    registerPatterns(map)
+    registerPatterns(map, getTheme)
+    mapRef.current = map
     let tries = 0
     const onIdle = () => {
       // For the random stop, keep looking until we land on somewhere with roads or buildings.
@@ -106,10 +110,22 @@ export default function PlaceMap() {
       setReady(true)
     }
     map.once('idle', onIdle)
-    return () => map.remove()
+    return () => {
+      map.remove()
+      mapRef.current = null
+    }
     // The map is created once; `place` changes only move it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Switching themes redraws the map in that theme's colours.
+  const firstTheme = useRef(theme)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || theme === firstTheme.current) return
+    firstTheme.current = theme
+    map.setStyle(inkStyle(MAP_PALETTES[theme]))
+  }, [theme])
 
   return (
     <figure className={`place-map ${ready ? 'ready' : ''}`} aria-label={`Map of ${place.name}, ${place.where}`}>

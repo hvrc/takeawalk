@@ -18,6 +18,10 @@ service cloud.firestore {
       return t.get('visibility', 'private') == 'public'
           || (signedIn() && request.auth.uid in t.get('memberUids', []));
     }
+    // Signed in without an account ("continue without signing in").
+    function isGuest() {
+      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
     function isMember(t) {
       return signedIn() && request.auth.uid in t.get('memberUids', []);
     }
@@ -39,6 +43,7 @@ service cloud.firestore {
                     && request.resource.data.memberUids == [request.auth.uid]
                     && request.resource.data.members.keys().hasOnly([request.auth.uid])
                     && request.resource.data.visibility in ['private', 'public']
+                    && !(isGuest() && request.resource.data.visibility != 'public')
                     && request.resource.data.status == 'active';
       // Members can update the walk, but only their own entry in `members`;
       // who's on it changes only through the server. Finished stays finished.
@@ -49,7 +54,9 @@ service cloud.firestore {
                     && request.resource.data.memberUids == resource.data.memberUids
                     && request.resource.data.createdBy == resource.data.createdBy
                     && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
-                    && !(resource.data.status == 'published' && request.resource.data.status != 'published');
+                    && !(resource.data.status == 'published' && request.resource.data.status != 'published')
+                    // Guests can't make a walk private.
+                    && !(isGuest() && request.resource.data.visibility == 'private' && resource.data.visibility != 'private');
       allow delete: if false;
 
       match /segments/{segmentId} {

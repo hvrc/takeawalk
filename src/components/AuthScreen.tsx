@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Services } from '../firebase'
-import { chooseUsername, connectGoogle, finishGoogleRedirect, signIn, signInWithGoogle, signUp } from '../lib/account'
+import { chooseUsername, connectGoogle, continueAsGuest, finishGoogleRedirect, signIn, signInWithGoogle, signUp } from '../lib/account'
+import ThemeButton from './ThemeButton'
 import type { AuthCredential } from 'firebase/auth'
 import { WalkerParade } from './Walker'
 import PlaceMap from './PlaceMap'
@@ -103,6 +104,7 @@ export default function AuthScreen({ services }: { services: Services }) {
   return (
     <div className="auth-page">
       <PlaceMap />
+      <ThemeButton className="auth-theme" />
       <div className="splash auth">
         <WalkerParade size={40} />
         <h1 className="wordmark">
@@ -195,12 +197,20 @@ export default function AuthScreen({ services }: { services: Services }) {
         )}
 
         {mode === 'signin' ? (
-          <p className="auth-switch">
-            New here?{' '}
-            <button className="link-btn" onClick={() => go('signup')}>
-              Sign up
+          <>
+            <p className="auth-switch">
+              New here?{' '}
+              <button className="link-btn" onClick={() => go('signup')}>
+                Sign up
+              </button>
+            </p>
+            <button
+              className="btn btn-ghost guest-btn"
+              onClick={() => continueAsGuest(services).catch(() => setMsg("Couldn't continue without signing in. Try again."))}
+            >
+              Continue without signing in
             </button>
-          </p>
+          </>
         ) : mode === 'signup' ? (
           <p className="auth-switch">
             Already have an account?{' '}
@@ -215,7 +225,7 @@ export default function AuthScreen({ services }: { services: Services }) {
 }
 
 /** After signing in with Google for the first time: pick a username. */
-export function ChooseUsername({ services, suggestion, onSignOut }: { services: Services; suggestion: string; onSignOut: () => void }) {
+export function ChooseUsername({ services, suggestion, guest, onSignOut }: { services: Services; suggestion: string; guest?: boolean; onSignOut: () => void }) {
   const [name, setName] = useState(suggestion)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -232,28 +242,35 @@ export function ChooseUsername({ services, suggestion, onSignOut }: { services: 
     }
   }
   return (
-    <div className="splash auth">
-      <WalkerParade size={40} />
-      <form className="card auth-card" onSubmit={submit}>
-        <h2>Pick a username</h2>
-        <p className="muted">This is the name your friends see on walks.</p>
-        <input
-          className="field"
-          aria-label="Username"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={24}
-          autoCapitalize="none"
-          autoCorrect="off"
-        />
-        {msg ? <p className="confirm-error">{msg}</p> : null}
-        <button className={`btn btn-accent ${busy ? 'busy' : ''}`} type="submit" disabled={busy || !name.trim()}>
-          {busy ? <span className="spinner sm" aria-label="Saving" /> : 'Continue'}
-        </button>
-        <button type="button" className="link-btn" onClick={onSignOut}>
-          Use a different account
-        </button>
-      </form>
+    <div className="auth-page">
+      <PlaceMap />
+      <div className="splash auth">
+        <WalkerParade size={40} />
+        <form className="card auth-card" onSubmit={submit}>
+          <h2>Pick a username</h2>
+          <p className="muted">
+            {guest
+              ? 'It has to be one nobody else has. Without an account, your walks are always public, and this name lives only in this browser.'
+              : 'This is the name your friends see on walks.'}
+          </p>
+          <input
+            className="field"
+            aria-label="Username"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={24}
+            autoCapitalize="none"
+            autoCorrect="off"
+          />
+          {msg ? <p className="confirm-error">{msg}</p> : null}
+          <button className={`btn btn-accent ${busy ? 'busy' : ''}`} type="submit" disabled={busy || !name.trim()}>
+            {busy ? <span className="spinner sm" aria-label="Saving" /> : 'Continue'}
+          </button>
+          <button type="button" className="link-btn" onClick={onSignOut}>
+            {guest ? 'Sign in or sign up instead' : 'Use a different account'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

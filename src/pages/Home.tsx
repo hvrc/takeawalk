@@ -9,9 +9,10 @@ import Polaroid from '../components/Polaroid'
 import { IconClose, IconPhoto } from '../components/icons'
 import Walker, { WalkerParade } from '../components/Walker'
 import PlaceMap from '../components/PlaceMap'
+import ThemeButton from '../components/ThemeButton'
 import Stroller from '../components/Stroller'
 
-export default function Home({ me }: { me: { id: string; name: string } }) {
+export default function Home({ me }: { me: { id: string; name: string; guest?: boolean } }) {
   const services = useServices()
   const { db } = services
   const nav = useNavigate()
@@ -52,7 +53,10 @@ export default function Home({ me }: { me: { id: string; name: string } }) {
   }
 
   const accountMenu = () => {
-    if (confirm(`Signed in as ${me.name}. Sign out?`)) void signOut(services)
+    const q = me.guest
+      ? `You're ${me.name}, without an account. If you sign out, this name can't be got back. Sign out anyway?`
+      : `Signed in as ${me.name}. Sign out?`
+    if (confirm(q)) void signOut(services)
   }
 
   return (
@@ -64,10 +68,13 @@ export default function Home({ me }: { me: { id: string; name: string } }) {
             take a walk
             <Walker variant="dotted" color="var(--leaf)" className="wordmark-walker" />
           </h1>
-          <button className="name-pill" onClick={accountMenu} aria-label={`Signed in as ${me.name}`}>
-            <span className="avatar">{me.name.slice(0, 1).toUpperCase()}</span>
-            {me.name}
-          </button>
+          <div className="home-header-actions">
+            <ThemeButton />
+            <button className="name-pill" onClick={accountMenu} aria-label={`Signed in as ${me.name}`}>
+              <span className="avatar">{me.name.slice(0, 1).toUpperCase()}</span>
+              {me.name}
+            </button>
+          </div>
         </div>
       </header>
 

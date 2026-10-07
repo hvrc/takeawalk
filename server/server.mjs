@@ -160,6 +160,9 @@ async function listWalks(res) {
       name: t.name ?? 'Untitled walk',
       status: t.status ?? 'active',
       hidden: !!t.hidden,
+      deleted: !!t.deleted,
+      deletedBy: t.deletedBy ? (t.members?.[t.deletedBy]?.name ?? 'admin') : null,
+      deletedAt: t.deletedAt ?? null,
       createdAt: t.createdAt ?? 0,
       updatedAt: t.updatedAt ?? 0,
       polaroidCount: t.polaroidCount ?? 0,
@@ -177,27 +180,14 @@ async function setHidden(req, res, id) {
   json(res, 200, { id, hidden: !!hidden })
 }
 
-// Deletes a walk with its route, photo records and photo files. Recoverable
-// for a while: Firestore point-in-time recovery (7 days) and bucket soft
-// delete (30 days).
-async function deleteWalk(res, id) {
+// "Deleting" a walk only marks it deleted: it disappears from the app but
+// every route, photo and file stays, and it can be restored here.
+async function setDeleted(res, id, deleted) {
   const ref = db.collection('trips').doc(id)
   if (!(await ref.get()).exists) return json(res, 404, { error: 'No such walk.' })
-  let docs = 0
-  for (const sub of ['segments', 'polaroids']) {
-    const s = await ref.collection(sub).get()
-    for (let i = 0; i < s.docs.length; i += 400) {
-      const batch = db.batch()
-      s.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref))
-      await batch.commit()
-    }
-    docs += s.size
-  }
-  await ref.delete()
-  const [files] = await bucket.getFiles({ prefix: `trips/${id}/` })
-  await Promise.all(files.map((f) => f.delete({ ignoreNotFound: true })))
-  console.log(JSON.stringify({ msg: 'admin deleted walk', id, docs, files: files.length }))
-  json(res, 200, { id, deletedDocs: docs + 1, deletedFiles: files.length })
+  await ref.update(deleted ? { deleted: true, deletedAt: Date.now(), deletedBy: 'admin' } : { deleted: false, deletedAt: null, deletedBy: null })
+  console.log(JSON.stringify({ msg: deleted ? 'admin deleted walk (soft)' : 'admin restored walk', id }))
+  json(res, 200, { id, deleted })
 }
 
 // ---- plumbing --------------------------------------------------------------
@@ -237,9 +227,10 @@ createServer(async (req, res) => {
     if (url.pathname === '/api/admin/login' && req.method === 'POST') return await login(req, res)
     if (!checkToken(req)) return json(res, 401, { error: 'Sign in again.' })
     if (url.pathname === '/api/admin/walks' && req.method === 'GET') return await listWalks(res)
-    const m = /^\/api\/admin\/walks\/([A-Za-z0-9_-]{1,64})(\/hidden)?$/.exec(url.pathname)
-    if (m && m[2] && req.method === 'POST') return await setHidden(req, res, m[1])
-    if (m && !m[2] && req.method === 'DELETE') return await deleteWalk(res, m[1])
+    const m = /^\/api\/admin\/walks\/([A-Za-z0-9_-]{1,64})(\/hidden|\/restore)?$/.exec(url.pathname)
+    if (m && m[2] === '/hidden' && req.method === 'POST') return await setHidden(req, res, m[1])
+    if (m && m[2] === '/restore' && req.method === 'POST') return await setDeleted(res, m[1], false)
+    if (m && !m[2] && req.method === 'DELETE') return await setDeleted(res, m[1], true)
     json(res, 404, { error: 'Not found.' })
   } catch (e) {
     if (e.status) return json(res, e.status, { error: e.message })

@@ -4,25 +4,116 @@ import type { ExpressionSpecification, Map as MLMap, StyleSpecification } from '
 // cream paper, stippled woods and fields, roads as double ink lines, spaced
 // uppercase labels. Data is OpenFreeMap's OpenMapTiles schema (no API key).
 
-export const PAPER = '#efe9dc'
-export const INK = '#2b2622'
-const INK_SOFT = '#6b625a'
-
-// Pale watercolour washes laid under the ink. Each becomes a mottled pattern
-// (see wash() below); `edge` is the deeper tint that pools along the borders.
-const WASH = {
-  paper: { base: PAPER },
-  forest: { base: '#cfdcb6', edge: '#a9bf8c' },
-  meadow: { base: '#e3e7c4', edge: '#c6cf9a' },
-  wheat: { base: '#ede1bd', edge: '#d9c58f' },
-  sand: { base: '#f1e4c3', edge: '#ddc993' },
-  water: { base: '#c8dde3', edge: '#93bccb' },
-  building: { base: '#f0e0d4' },
-  civic: { base: '#f0dccd' },
-  industry: { base: '#e4dde3' },
+export interface MapPalette {
+  key: string
+  paper: string
+  ink: string
+  inkSoft: string
+  // Pale watercolour washes laid under the ink. Each becomes a mottled pattern
+  // (see wash() below); `edge` is the deeper tint that pools along the borders.
+  wash: Record<'forest' | 'meadow' | 'wheat' | 'sand' | 'water' | 'building' | 'civic' | 'industry', { base: string; edge?: string }>
+  roadMajor: string
+  roadMinor: string
 }
-const ROAD_MAJOR = '#f3dea3'
-const ROAD_MINOR = '#f8f1df'
+
+/** One map look per app theme (see src/lib/theme.ts). */
+export const MAP_PALETTES: Record<string, MapPalette> = {
+  paper: {
+    key: 'paper',
+    paper: '#efe9dc',
+    ink: '#2b2622',
+    inkSoft: '#6b625a',
+    wash: {
+      forest: { base: '#cfdcb6', edge: '#a9bf8c' },
+      meadow: { base: '#e3e7c4', edge: '#c6cf9a' },
+      wheat: { base: '#ede1bd', edge: '#d9c58f' },
+      sand: { base: '#f1e4c3', edge: '#ddc993' },
+      water: { base: '#c8dde3', edge: '#93bccb' },
+      building: { base: '#f0e0d4' },
+      civic: { base: '#f0dccd' },
+      industry: { base: '#e4dde3' },
+    },
+    roadMajor: '#f3dea3',
+    roadMinor: '#f8f1df',
+  },
+  night: {
+    key: 'night',
+    paper: '#23201c',
+    ink: '#e9dec6',
+    inkSoft: '#a69c8a',
+    wash: {
+      forest: { base: '#2b3827', edge: '#3d5136' },
+      meadow: { base: '#2e3829', edge: '#425238' },
+      wheat: { base: '#383226', edge: '#4c4431' },
+      sand: { base: '#3a3427', edge: '#514830' },
+      water: { base: '#1e2f37', edge: '#2e4a56' },
+      building: { base: '#2e2925' },
+      civic: { base: '#332b26' },
+      industry: { base: '#2a292d' },
+    },
+    roadMajor: '#5c4b29',
+    roadMinor: '#2b2824',
+  },
+  blueprint: {
+    key: 'blueprint',
+    paper: '#1f4f8a',
+    ink: '#eaf2ff',
+    inkSoft: '#b7cbe7',
+    wash: {
+      forest: { base: '#255d95', edge: '#2e6ca7' },
+      meadow: { base: '#23588f', edge: '#2c659f' },
+      wheat: { base: '#245891' },
+      sand: { base: '#285d96' },
+      water: { base: '#173f72', edge: '#123562' },
+      building: { base: '#2a5f99' },
+      civic: { base: '#2d639d' },
+      industry: { base: '#25558d' },
+    },
+    roadMajor: '#3170ae',
+    roadMinor: '#255993',
+  },
+  riso: {
+    key: 'riso',
+    paper: '#f6f0e6',
+    ink: '#2b48ad',
+    inkSoft: '#6a7fc4',
+    wash: {
+      forest: { base: '#bfe4d3', edge: '#7ccbad' },
+      meadow: { base: '#d6eddf', edge: '#a6dbc0' },
+      wheat: { base: '#ffe08f', edge: '#ffcd4d' },
+      sand: { base: '#ffe9ad', edge: '#ffd571' },
+      water: { base: '#bcd7f5', edge: '#86b4ea' },
+      building: { base: '#ffd0de' },
+      civic: { base: '#ffbcd0' },
+      industry: { base: '#e8dcf3' },
+    },
+    roadMajor: '#ff94b4',
+    roadMinor: '#fff7f2',
+  },
+  newsprint: {
+    key: 'newsprint',
+    paper: '#ecebe6',
+    ink: '#141414',
+    inkSoft: '#555555',
+    wash: {
+      forest: { base: '#d3d3ce', edge: '#b7b7b1' },
+      meadow: { base: '#dedeD9', edge: '#c5c5c0' },
+      wheat: { base: '#e2e1dc' },
+      sand: { base: '#e5e4df' },
+      water: { base: '#cfd0cf', edge: '#acadab' },
+      building: { base: '#e4e3de' },
+      civic: { base: '#dcdbd5' },
+      industry: { base: '#d8d7d2' },
+    },
+    roadMajor: '#ffffff',
+    roadMinor: '#f7f7f4',
+  },
+}
+
+// The palette the style is being built with (inkStyle sets it; layers read it).
+let P: MapPalette = MAP_PALETTES.paper
+/** Pattern ids carry the theme, so switching themes never reuses another theme's images. */
+const pat = (name: string) => `${name}@${P.key}`
 
 const FONT = ['Noto Sans Bold']
 const FONT_ITALIC = ['Noto Sans Italic']
@@ -47,7 +138,7 @@ const roadGroups: Array<{ id: string; classes: string[]; w: Array<[number, numbe
 ]
 const casingStops = (w: Array<[number, number]>): Array<[number, number]> => w.map(([zz, v]) => [zz, v + 2.4])
 
-type WashName = keyof typeof WASH
+type WashName = keyof MapPalette['wash'] | 'paper'
 
 function washFill(id: string, sourceLayer: string, classes: string[], wash: WashName) {
   return {
@@ -56,7 +147,7 @@ function washFill(id: string, sourceLayer: string, classes: string[], wash: Wash
     source: 'openmaptiles',
     'source-layer': sourceLayer,
     filter: ['all', polygons, ['match', ['get', 'class'], classes, true, false]] as ExpressionSpecification,
-    paint: { 'fill-pattern': `wash-${wash}` },
+    paint: { 'fill-pattern': pat(`wash-${wash}`) },
   }
 }
 
@@ -76,7 +167,8 @@ function edgeBloom(id: string, sourceLayer: string, classes: string[] | null, co
   }
 }
 
-export function inkStyle(): StyleSpecification {
+export function inkStyle(palette: MapPalette = MAP_PALETTES.paper): StyleSpecification {
+  P = palette
   return {
     version: 8,
     name: 'takeawalk ink',
@@ -85,7 +177,7 @@ export function inkStyle(): StyleSpecification {
       openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' },
     },
     layers: [
-      { id: 'paper', type: 'background', paint: { 'background-pattern': 'wash-paper' } },
+      { id: 'paper', type: 'background', paint: { 'background-pattern': pat('wash-paper') } },
 
       // Watercolour washes, all laid down before any ink.
       washFill('landuse-civic', 'landuse', ['school', 'university', 'college', 'hospital'], 'civic'),
@@ -94,19 +186,19 @@ export function inkStyle(): StyleSpecification {
       washFill('fields-wash', 'landcover', ['farmland'], 'wheat'),
       washFill('meadow-wash', 'landcover', ['grass', 'wetland'], 'meadow'),
       washFill('landuse-green-wash', 'landuse', ['cemetery', 'pitch', 'stadium', 'playground'], 'meadow'),
-      { id: 'park-wash', type: 'fill', source: 'openmaptiles', 'source-layer': 'park', filter: polygons, paint: { 'fill-pattern': 'wash-meadow' } },
-      edgeBloom('park-bloom', 'park', null, WASH.meadow.edge),
+      { id: 'park-wash', type: 'fill', source: 'openmaptiles', 'source-layer': 'park', filter: polygons, paint: { 'fill-pattern': pat('wash-meadow') } },
+      edgeBloom('park-bloom', 'park', null, P.wash.meadow.edge ?? P.wash.meadow.base),
       washFill('wood-wash', 'landcover', ['wood'], 'forest'),
-      edgeBloom('wood-bloom', 'landcover', ['wood'], WASH.forest.edge),
+      edgeBloom('wood-bloom', 'landcover', ['wood'], P.wash.forest.edge ?? P.wash.forest.base),
       {
         id: 'water-wash',
         type: 'fill',
         source: 'openmaptiles',
         'source-layer': 'water',
         filter: ['all', polygons, notTunnel],
-        paint: { 'fill-pattern': 'wash-water' },
+        paint: { 'fill-pattern': pat('wash-water') },
       },
-      edgeBloom('water-bloom', 'water', null, WASH.water.edge),
+      edgeBloom('water-bloom', 'water', null, P.wash.water.edge ?? P.wash.water.base),
 
       // Light stipple: fields, grass, parks, cemeteries, pitches.
       {
@@ -115,7 +207,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'landcover',
         filter: ['all', polygons, ['match', ['get', 'class'], ['grass', 'farmland', 'wetland'], true, false]],
-        paint: { 'fill-pattern': 'stipple-light' },
+        paint: { 'fill-pattern': pat('stipple-light') },
       },
       {
         id: 'landuse-green',
@@ -123,7 +215,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'landuse',
         filter: ['all', polygons, ['match', ['get', 'class'], ['cemetery', 'pitch', 'stadium', 'playground'], true, false]],
-        paint: { 'fill-pattern': 'stipple-light' },
+        paint: { 'fill-pattern': pat('stipple-light') },
       },
       {
         id: 'park',
@@ -131,7 +223,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'park',
         filter: polygons,
-        paint: { 'fill-pattern': 'stipple-light' },
+        paint: { 'fill-pattern': pat('stipple-light') },
       },
       {
         id: 'park-edge',
@@ -140,7 +232,7 @@ export function inkStyle(): StyleSpecification {
         'source-layer': 'park',
         minzoom: 12,
         filter: polygons,
-        paint: { 'line-color': INK, 'line-width': 1, 'line-dasharray': [1, 2.5], 'line-opacity': 0.7 },
+        paint: { 'line-color': P.ink, 'line-width': 1, 'line-dasharray': [1, 2.5], 'line-opacity': 0.7 },
       },
 
       // Dense stipple: woods.
@@ -150,7 +242,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'landcover',
         filter: ['all', polygons, ['==', ['get', 'class'], 'wood']],
-        paint: { 'fill-pattern': 'stipple-dense' },
+        paint: { 'fill-pattern': pat('stipple-dense') },
       },
       {
         id: 'wood-edge',
@@ -159,7 +251,7 @@ export function inkStyle(): StyleSpecification {
         'source-layer': 'landcover',
         minzoom: 12,
         filter: ['all', polygons, ['==', ['get', 'class'], 'wood']],
-        paint: { 'line-color': INK, 'line-width': z([[12, 0.6], [16, 1.4]]) },
+        paint: { 'line-color': P.ink, 'line-width': z([[12, 0.6], [16, 1.4]]) },
       },
 
       // Water: horizontal hatching with an ink shoreline.
@@ -169,7 +261,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'water',
         filter: ['all', polygons, notTunnel],
-        paint: { 'fill-pattern': 'hatch' },
+        paint: { 'fill-pattern': pat('hatch') },
       },
       {
         id: 'water-edge',
@@ -177,7 +269,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'water',
         filter: ['all', polygons, notTunnel],
-        paint: { 'line-color': INK, 'line-width': z([[8, 0.6], [16, 1.6]]) },
+        paint: { 'line-color': P.ink, 'line-width': z([[8, 0.6], [16, 1.6]]) },
       },
       {
         id: 'waterway-wash',
@@ -186,7 +278,7 @@ export function inkStyle(): StyleSpecification {
         'source-layer': 'waterway',
         filter: ['all', lines, notTunnel],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': WASH.water.edge, 'line-opacity': 0.6, 'line-blur': 2, 'line-width': z([[10, 2], [16, 8]]) },
+        paint: { 'line-color': P.wash.water.edge ?? P.wash.water.base, 'line-opacity': 0.6, 'line-blur': 2, 'line-width': z([[10, 2], [16, 8]]) },
       },
       {
         id: 'waterway',
@@ -194,7 +286,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'waterway',
         filter: ['all', lines, notTunnel],
-        paint: { 'line-color': INK, 'line-width': z([[10, 0.5], [16, 2]]) },
+        paint: { 'line-color': P.ink, 'line-width': z([[10, 0.5], [16, 2]]) },
       },
 
       // Road casings first, then fills, so junctions merge into one outline.
@@ -206,7 +298,7 @@ export function inkStyle(): StyleSpecification {
         minzoom: g.minzoom,
         filter: ['all', lines, notTunnel, ['match', ['get', 'class'], g.classes, true, false]] as ExpressionSpecification,
         layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
-        paint: { 'line-color': INK, 'line-width': z(casingStops(g.w)) },
+        paint: { 'line-color': P.ink, 'line-width': z(casingStops(g.w)) },
       })),
       ...roadGroups.map((g) => ({
         id: `road-${g.id}`,
@@ -216,7 +308,7 @@ export function inkStyle(): StyleSpecification {
         minzoom: g.minzoom,
         filter: ['all', lines, notTunnel, ['match', ['get', 'class'], g.classes, true, false]] as ExpressionSpecification,
         layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
-        paint: { 'line-color': g.id === 'major' ? ROAD_MAJOR : ROAD_MINOR, 'line-width': z(g.w) },
+        paint: { 'line-color': g.id === 'major' ? P.roadMajor : P.roadMinor, 'line-width': z(g.w) },
       })),
 
       // Footpaths and trails: a dotted ink line.
@@ -228,7 +320,7 @@ export function inkStyle(): StyleSpecification {
         minzoom: 14,
         filter: ['all', lines, notTunnel, ['==', ['get', 'class'], 'path']],
         layout: { 'line-cap': 'round' },
-        paint: { 'line-color': INK, 'line-opacity': 0.6, 'line-width': z([[14, 0.9], [18, 2]]), 'line-dasharray': [0.1, 2.4] },
+        paint: { 'line-color': P.ink, 'line-opacity': 0.6, 'line-width': z([[14, 0.9], [18, 2]]), 'line-dasharray': [0.1, 2.4] },
       },
       {
         id: 'rail',
@@ -237,7 +329,7 @@ export function inkStyle(): StyleSpecification {
         'source-layer': 'transportation',
         minzoom: 10,
         filter: ['all', lines, notTunnel, ['match', ['get', 'class'], ['rail', 'transit'], true, false]],
-        paint: { 'line-color': INK, 'line-width': z([[10, 0.6], [16, 1.6]]), 'line-dasharray': [3, 1.5] },
+        paint: { 'line-color': P.ink, 'line-width': z([[10, 0.6], [16, 1.6]]), 'line-dasharray': [3, 1.5] },
       },
 
       // Buildings: paper with an ink outline, like the little drawn huts.
@@ -247,7 +339,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'building',
         minzoom: 14,
-        paint: { 'fill-pattern': 'wash-building' },
+        paint: { 'fill-pattern': pat('wash-building') },
       },
       {
         id: 'building-edge',
@@ -255,7 +347,7 @@ export function inkStyle(): StyleSpecification {
         source: 'openmaptiles',
         'source-layer': 'building',
         minzoom: 14,
-        paint: { 'line-color': INK, 'line-width': z([[14, 0.5], [18, 1.6]]) },
+        paint: { 'line-color': P.ink, 'line-width': z([[14, 0.5], [18, 1.6]]) },
       },
 
       // Labels: spaced uppercase ink with a paper halo.
@@ -271,7 +363,7 @@ export function inkStyle(): StyleSpecification {
           'text-letter-spacing': 0.15,
           'text-transform': 'uppercase',
         },
-        paint: { 'text-color': INK, 'text-halo-color': PAPER, 'text-halo-width': 2 },
+        paint: { 'text-color': P.ink, 'text-halo-color': P.paper, 'text-halo-width': 2 },
       },
       {
         id: 'road-label',
@@ -289,7 +381,7 @@ export function inkStyle(): StyleSpecification {
           'text-transform': 'uppercase',
           'text-max-angle': 30,
         },
-        paint: { 'text-color': INK, 'text-halo-color': PAPER, 'text-halo-width': 2.5 },
+        paint: { 'text-color': P.ink, 'text-halo-color': P.paper, 'text-halo-width': 2.5 },
       },
       {
         id: 'place-small',
@@ -306,7 +398,7 @@ export function inkStyle(): StyleSpecification {
           'text-transform': 'uppercase',
           'text-max-width': 8,
         },
-        paint: { 'text-color': INK_SOFT, 'text-halo-color': PAPER, 'text-halo-width': 2.5 },
+        paint: { 'text-color': P.inkSoft, 'text-halo-color': P.paper, 'text-halo-width': 2.5 },
       },
       {
         id: 'place-big',
@@ -322,7 +414,7 @@ export function inkStyle(): StyleSpecification {
           'text-transform': 'uppercase',
           'text-max-width': 8,
         },
-        paint: { 'text-color': INK, 'text-halo-color': PAPER, 'text-halo-width': 3 },
+        paint: { 'text-color': P.ink, 'text-halo-color': P.paper, 'text-halo-width': 3 },
       },
     ],
   }
@@ -341,12 +433,12 @@ function rng(seed: number) {
 }
 
 // Jittered-grid stipple: one dot per cell, wrapped at the edges so it tiles.
-function stipple(cell: number, rMin: number, rMax: number, seed: number) {
+function stipple(ink: string, cell: number, rMin: number, rMax: number, seed: number) {
   const c = document.createElement('canvas')
   c.width = c.height = TILE * PX
   const g = c.getContext('2d')!
   g.scale(PX, PX)
-  g.fillStyle = INK
+  g.fillStyle = ink
   const r = rng(seed)
   const n = Math.round(TILE / cell)
   const step = TILE / n
@@ -365,12 +457,12 @@ function stipple(cell: number, rMin: number, rMax: number, seed: number) {
   return g.getImageData(0, 0, c.width, c.height)
 }
 
-function hatch() {
+function hatch(ink: string) {
   const c = document.createElement('canvas')
   c.width = c.height = TILE * PX
   const g = c.getContext('2d')!
   g.scale(PX, PX)
-  g.strokeStyle = INK
+  g.strokeStyle = ink
   g.globalAlpha = 0.28
   g.lineWidth = 0.9
   for (let y = TILE / 12; y < TILE; y += TILE / 6) {
@@ -430,23 +522,35 @@ function wash(hex: string, seed: number, strength = 1) {
   return img
 }
 
-const PATTERNS: Record<string, () => ImageData> = {
-  ...Object.fromEntries(
-    Object.entries(WASH).map(([name, w], i) => [`wash-${name}`, () => wash(w.base, 101 + i * 17, name === 'paper' ? 0.3 : 1)]),
-  ),
-  'stipple-dense': () => stipple(4.2, 0.85, 1.35, 7),
-  'stipple-light': () => stipple(9, 0.6, 0.95, 11),
-  hatch,
+const WASH_NAMES = ['paper', 'forest', 'meadow', 'wheat', 'sand', 'water', 'building', 'civic', 'industry'] as const
+
+/** Draws the pattern for an id like "wash-forest@night" in that theme's colours. */
+function makePattern(id: string): ImageData | null {
+  const [name, key] = id.split('@')
+  const p = MAP_PALETTES[key]
+  if (!p) return null
+  if (name === 'stipple-dense') return stipple(p.ink, 4.2, 0.85, 1.35, 7)
+  if (name === 'stipple-light') return stipple(p.ink, 9, 0.6, 0.95, 11)
+  if (name === 'hatch') return hatch(p.ink)
+  const w = name.startsWith('wash-') ? name.slice(5) : ''
+  const i = WASH_NAMES.indexOf(w as (typeof WASH_NAMES)[number])
+  if (i < 0) return null
+  const base = w === 'paper' ? p.paper : p.wash[w as keyof MapPalette['wash']].base
+  return wash(base, 101 + i * 17, w === 'paper' ? 0.3 : 1)
 }
 
 /** Generates the hand-drawn fill patterns when the style first asks for them. */
-export function registerPatterns(map: MLMap) {
+export function registerPatterns(map: MLMap, paletteKey: () => string) {
   const add = (id: string) => {
-    const make = PATTERNS[id]
-    if (make && !map.hasImage(id)) map.addImage(id, make(), { pixelRatio: PX })
+    if (map.hasImage(id)) return
+    const img = makePattern(id)
+    if (img) map.addImage(id, img, { pixelRatio: PX })
   }
-  // Background patterns aren't requested through the resolver, so add every
-  // pattern as soon as the style exists; the resolver covers any race.
-  map.on('style.load', () => Object.keys(PATTERNS).forEach(add))
+  // Background patterns aren't requested through the resolver, so add the
+  // current theme's set as soon as a style loads; the resolver covers the rest.
+  map.on('style.load', () => {
+    const k = paletteKey()
+    ;['stipple-dense', 'stipple-light', 'hatch', ...WASH_NAMES.map((n) => `wash-${n}`)].forEach((n) => add(`${n}@${k}`))
+  })
   map.setMissingStyleImageResolver(add)
 }

@@ -12,11 +12,13 @@ import {
   finishTrip,
   newPolaroidId,
   renameTrip,
+  deleteWalk,
   setVisibility,
   startSegment,
   updatePolaroidText,
 } from '../lib/tripApi'
 import { compressImage, type Compressed } from '../lib/image'
+import { readPhotoMeta } from '../lib/exif'
 import type { PendingUpload } from '../lib/uploadQueue'
 import { uploader } from '../lib/uploader'
 import { formatDistance, formatDuration, pathDistance } from '../lib/geo'
@@ -36,7 +38,7 @@ interface PendingLocal {
   failed?: boolean
 }
 
-export default function Trip({ me }: { me: { id: string; name: string } }) {
+export default function Trip({ me }: { me: { id: string; name: string; guest?: boolean } }) {
   const { tripId = '' } = useParams()
   const nav = useNavigate()
   const services = useServices()
@@ -92,7 +94,6 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [capture, setCapture] = useState<Compressed | null>(null)
-  const captureFix = useRef<GeoPoint | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   // Photos for this walk that aren't confirmed in the cloud yet (the uploader
   // owns them; this just mirrors its state for display).
@@ -246,6 +247,17 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
     }
   }
 
+  const removeWalk = async () => {
+    if (!confirm('Delete this walk? It disappears for everyone on it. (Nothing is lost: it can be brought back if you change your mind.)')) return
+    try {
+      await trackerRef.current?.stop()
+      await deleteWalk(db, tripId, me.id)
+      nav('/')
+    } catch {
+      showToast("Couldn't delete it. Check your connection.")
+    }
+  }
+
   const start = () => {
     setFollow(true)
     void trackerRef.current?.start()
@@ -285,13 +297,54 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
     if (n && n.trim() && n.trim() !== trip.name) await renameTrip(db, tripId, n.trim())
   }
 
+  // Where a photo gets pinned is decided when the photo comes back, not when
+  // the camera opens: opening the camera backgrounds the app and pauses GPS,
+  // so the last known position can be minutes (and a kilometre) old.
+  //   1. the GPS position stored in the photo itself, if there is one;
+  //   2. otherwise a fresh reading taken now;
+  //   3. a reading older than FIX_MAX_AGE is never used without asking.
+  const FIX_MAX_AGE = 60_000
+  const shutterAt = useRef(0)
+  const [where, setWhere] = useState<{ fix: GeoPoint | null; source: 'photo' | 'gps' | 'stale' | 'none' | 'locating'; takenAt: number; note?: string }>({
+    fix: null,
+    source: 'none',
+    takenAt: 0,
+  })
+
+  const locate = useCallback(async () => {
+    setWhere((w) => ({ ...w, source: 'locating' }))
+    try {
+      // A short-lived watch rather than getCurrentPosition: the latter can hang
+      // while the walk tracker already has a watch running (seen in Chrome and iOS).
+      const fix = await new Promise<GeoPoint>((resolve, reject) => {
+        const done = (f: (() => void) | null) => {
+          navigator.geolocation.clearWatch(id)
+          clearTimeout(timer)
+          f?.()
+        }
+        const id = navigator.geolocation.watchPosition(
+          (pos) => {
+            if (Date.now() - (pos.timestamp || Date.now()) > 30_000) return // a cached old reading: keep waiting
+            done(() => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, t: pos.timestamp || Date.now() }))
+          },
+          (err) => done(() => reject(err)),
+          { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 },
+        )
+        const timer = setTimeout(() => done(() => reject(new Error('timed out'))), 15_000)
+      })
+      setMyFix(fix)
+      setWhere((w) => (w.source === 'photo' ? w : { ...w, fix, source: 'gps' }))
+    } catch (e) {
+      console.warn('location for photo failed', (e as GeolocationPositionError)?.code, (e as Error)?.message)
+      // No fresh reading: only fall back to one from the last minute.
+      const recent = [trackerRef.current?.lastFix, myFix, member?.lastPos].filter((f): f is GeoPoint => !!f && Date.now() - f.t < FIX_MAX_AGE)
+      setWhere((w) => (w.source === 'photo' ? w : recent[0] ? { ...w, fix: recent[0], source: 'stale' } : { ...w, fix: null, source: 'none' }))
+    }
+  }, [myFix, member])
+
   const onShutter = () => {
-    const t = trackerRef.current
-    const fresh = t?.lastFix && Date.now() - t.lastFix.t < 30_000 ? t.lastFix : null
-    captureFix.current = fresh ?? myFix ?? member?.lastPos ?? null
-    // Open the camera synchronously inside the tap, then refine the fix.
+    shutterAt.current = Date.now()
     fileInput.current?.click()
-    if (!fresh && t) t.recalibrate().then((f) => (captureFix.current = f)).catch(() => undefined)
   }
 
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -299,7 +352,20 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
     e.target.value = ''
     if (!file) return
     try {
-      const c = await compressImage(file)
+      const [c, meta] = await Promise.all([compressImage(file), readPhotoMeta(file)])
+      const takenAt = meta.takenAt ?? shutterAt.current ?? Date.now()
+      const old = meta.takenAt && Date.now() - meta.takenAt > 10 * 60_000
+      if (meta.lat != null && meta.lng != null) {
+        setWhere({ fix: { lat: meta.lat, lng: meta.lng, acc: meta.acc ?? 10, t: takenAt }, source: 'photo', takenAt })
+      } else {
+        setWhere({
+          fix: null,
+          source: 'locating',
+          takenAt,
+          note: old ? `This photo was taken ${formatAgo(meta.takenAt!)} and has no location in it, so it will be pinned where you are now.` : undefined,
+        })
+        void locate()
+      }
       setCapture(c)
     } catch {
       showToast('Could not read that photo')
@@ -314,9 +380,9 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
 
   const savePhoto = async (caption: string, description: string) => {
     if (!capture || !member) return
-    const fix = captureFix.current ?? myFix ?? member.lastPos
+    const fix = where.fix
     if (!fix) {
-      showToast('No GPS fix yet. Give it a second and try again.', 4000)
+      showToast("We don't know where you are yet. Give it a second.", 4000)
       return
     }
     const item: PendingUpload = {
@@ -329,7 +395,7 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
       lat: fix.lat,
       lng: fix.lng,
       acc: fix.acc,
-      takenAt: Date.now(),
+      takenAt: where.takenAt || Date.now(),
       caption,
       description,
       createdAt: Date.now(),
@@ -405,6 +471,16 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
       </div>
     )
   }
+  if (trip?.deleted) {
+    return (
+      <div className="splash">
+        <p className="muted">This walk was deleted.</p>
+        <button className="btn" onClick={() => nav('/')}>
+          Back home
+        </button>
+      </div>
+    )
+  }
   if (!loading && trip === null) {
     return (
       <div className="splash">
@@ -464,7 +540,7 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
               {allPolaroids.length} polaroid{allPolaroids.length === 1 ? '' : 's'}
             </span>
             {trip ? (
-              isMember ? (
+              isMember && !me.guest ? (
                 <button
                   className={`vis-chip ${trip.visibility}`}
                   onClick={(e) => {
@@ -543,6 +619,9 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
                     ? 'Paused while the app was in the background.'
                     : 'Tap play to begin drawing your line. Photos pin where you are.'}
           </div>
+          <button className="link-btn delete-walk" onClick={removeWalk}>
+            Delete this walk
+          </button>
         </div>
       ) : null}
 
@@ -566,6 +645,11 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
               </div>
             </div>
             <div className="finished-line">This walk is finished. Tap a pin to see its polaroids.</div>
+            {isMember ? (
+              <button className="link-btn delete-walk" onClick={removeWalk}>
+                Delete this walk
+              </button>
+            ) : null}
           </>
         ) : !isMember ? (
           <div className="join-card">
@@ -622,8 +706,19 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
           photo={capture}
           memberName={me.name}
           color={member?.color ?? colorRef.current}
-          lat={(captureFix.current ?? myFix ?? member?.lastPos)?.lat}
-          lng={(captureFix.current ?? myFix ?? member?.lastPos)?.lng}
+          lat={where.fix?.lat}
+          lng={where.fix?.lng}
+          locating={where.source === 'locating'}
+          locationNote={
+            where.source === 'photo'
+              ? 'Pinned where the photo was taken (from the photo).'
+              : where.source === 'stale'
+                ? "Couldn't get a fresh location, so this uses where you were a moment ago."
+                : where.source === 'none'
+                  ? "We can't tell where you are. Check location is on, then try again."
+                  : where.note
+          }
+          onRetryLocation={where.source === 'none' ? () => void locate() : undefined}
           onRetake={retake}
           onCancel={() => {
             URL.revokeObjectURL(capture.previewUrl)
@@ -645,4 +740,12 @@ export default function Trip({ me }: { me: { id: string; name: string } }) {
       ) : null}
     </div>
   )
+}
+
+function formatAgo(t: number): string {
+  const m = Math.round((Date.now() - t) / 60_000)
+  if (m < 60) return `${m} minutes ago`
+  const h = Math.round(m / 60)
+  if (h < 48) return `${h} hour${h === 1 ? '' : 's'} ago`
+  return `${Math.round(h / 24)} days ago`
 }

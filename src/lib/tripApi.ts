@@ -47,6 +47,7 @@ function toTrip(id: string, data: Record<string, unknown>): Trip {
     distanceM: (data.distanceM as number) ?? 0,
     coverUrl: (data.coverUrl as string | null) ?? null,
     finishedAt: (data.finishedAt as number | null) ?? null,
+    deleted: !!data.deleted,
     visibility: (data.visibility as Visibility) ?? 'private',
     memberUids: (data.memberUids as string[]) ?? [],
   }
@@ -66,7 +67,7 @@ export async function createTrip(db: Firestore, name: string, me: Me): Promise<T
     updatedAt: now,
     members: { [me.id]: member },
     memberUids: [me.id],
-    visibility: 'private' as Visibility,
+    visibility: 'public' as Visibility,
     pointCount: 0,
     polaroidCount: 0,
     distanceM: 0,
@@ -100,7 +101,7 @@ export async function renameMember(db: Firestore, tripId: string, me: Me): Promi
 /**
  * The walks you can see: the ones you're on, plus public ones. (Two queries,
  * because the database rules only allow lists they can prove are readable.)
- * Walks flagged `hidden` stay out of the list but still open by link.
+ * Walks flagged `hidden` (admin) or `deleted` stay out of the list.
  */
 export function subscribeTrips(db: Firestore, uid: string, cb: (trips: Trip[]) => void, onError?: (e: Error) => void): Unsubscribe {
   const mine = new Map<string, Trip>()
@@ -110,7 +111,7 @@ export function subscribeTrips(db: Firestore, uid: string, cb: (trips: Trip[]) =
   const emit = () => {
     if (!gotMine || !gotPub) return
     const all = new Map([...pub, ...mine])
-    cb([...all.values()].filter((t) => !(t as Trip & { hidden?: boolean }).hidden).sort((a, b) => b.updatedAt - a.updatedAt))
+    cb([...all.values()].filter((t) => !(t as Trip & { hidden?: boolean }).hidden && !t.deleted).sort((a, b) => b.updatedAt - a.updatedAt))
   }
   const fill = (into: Map<string, Trip>) => (snap: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => {
     into.clear()
@@ -130,6 +131,14 @@ export function subscribeTrips(db: Firestore, uid: string, cb: (trips: Trip[]) =
     u1()
     u2()
   }
+}
+
+/**
+ * Anyone on a walk can delete it. That only hides it: the route and photos are
+ * kept and an admin can restore it from /admin.
+ */
+export async function deleteWalk(db: Firestore, tripId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, 'trips', tripId), { deleted: true, deletedAt: Date.now(), deletedBy: uid })
 }
 
 /** Members can make a walk public (anyone can see it) or private (just the people on it). */
