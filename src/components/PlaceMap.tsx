@@ -52,7 +52,13 @@ function randomPoint(): Place {
   // Latitudes where people mostly live; the map checks for land and retries.
   const lat = -45 + Math.random() * 105
   const lng = -180 + Math.random() * 360
-  return { name: 'Somewhere', where: `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(2)}°${lng >= 0 ? 'E' : 'W'}`, lng, lat, zoom: 12 }
+  return {
+    name: 'Somewhere',
+    where: `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(2)}°${lng >= 0 ? 'E' : 'W'}`,
+    lng,
+    lat,
+    zoom: 12,
+  }
 }
 
 export default function PlaceMap() {
@@ -63,17 +69,24 @@ export default function PlaceMap() {
 
   useEffect(() => {
     if (!el.current) return
-    const map = new MLMap({
-      container: el.current,
-      style: inkStyle(),
-      center: [place.lng, place.lat],
-      zoom: place.zoom,
-      // Drag to pan, pinch or double-tap to zoom. The wheel still scrolls the page.
-      scrollZoom: false,
-      dragRotate: false,
-      pitchWithRotate: false,
-      attributionControl: false,
-    })
+    // Maps need WebGL. If this browser can't do it, the background just stays plain paper.
+    let map: MLMap
+    try {
+      map = new MLMap({
+        container: el.current,
+        style: inkStyle(),
+        center: [place.lng, place.lat],
+        zoom: place.zoom,
+        // Drag to pan, pinch or double-tap to zoom. The wheel still scrolls the page.
+        scrollZoom: false,
+        dragRotate: false,
+        pitchWithRotate: false,
+        attributionControl: false,
+      })
+    } catch (e) {
+      console.warn('background map unavailable', e)
+      return
+    }
     map.touchZoomRotate.disableRotation()
     registerPatterns(map)
     let tries = 0

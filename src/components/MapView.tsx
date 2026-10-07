@@ -29,10 +29,24 @@ interface Props {
   focus: 'start' | 'current' | null
 }
 
-export default function MapView({ segments, members, polaroids, meId, myFix, tracking, follow, onUserMove, onPolaroidClick, fitKey, showPolaroids, focus }: Props) {
+export default function MapView({
+  segments,
+  members,
+  polaroids,
+  meId,
+  myFix,
+  tracking,
+  follow,
+  onUserMove,
+  onPolaroidClick,
+  fitKey,
+  showPolaroids,
+  focus,
+}: Props) {
   const el = useRef<HTMLDivElement>(null)
   // Covers the blank map until the style and first tiles have rendered.
   const [ready, setReady] = useState(false)
+  const [noMap, setNoMap] = useState(false)
   const mapRef = useRef<MLMap | null>(null)
   const loaded = useRef(false)
   const readyQueue = useRef<Array<() => void>>([])
@@ -52,15 +66,23 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
   // Create map once.
   useEffect(() => {
     if (!el.current || mapRef.current) return
-    const map = new MLMap({
-      container: el.current,
-      style: inkStyle(),
-      center: [0, 20],
-      zoom: 1.5,
-      attributionControl: { compact: true },
-      pitchWithRotate: false,
-      dragRotate: false,
-    })
+    let map: MLMap
+    try {
+      map = new MLMap({
+        container: el.current,
+        style: inkStyle(),
+        center: [0, 20],
+        zoom: 1.5,
+        attributionControl: { compact: true },
+        pitchWithRotate: false,
+        dragRotate: false,
+      })
+    } catch (e) {
+      // No WebGL (switched off, or an old graphics card): say so instead of crashing the app.
+      console.warn('map unavailable', e)
+      setNoMap(true)
+      return
+    }
     map.touchZoomRotate.disableRotation()
     registerPatterns(map)
     map.once('idle', () => setReady(true))
@@ -134,7 +156,7 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
     const wanted = new Set<string>()
     const now = Date.now()
     for (const [id, m] of Object.entries(members)) {
-      const pos = id === meId ? myFix ?? m.lastPos : m.lastPos
+      const pos = id === meId ? (myFix ?? m.lastPos) : m.lastPos
       if (!pos) continue
       const recent = id === meId ? true : now - m.lastSeenAt < 60 * 60_000
       if (!recent && !m.tracking) continue
@@ -196,7 +218,15 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
           } else {
             const lng = g.items.reduce((a, p) => a + p.lng, 0) / g.items.length
             const lat = g.items.reduce((a, p) => a + p.lat, 0) / g.items.length
-            spots.push({ key: `g:${g.items.map((p) => p.id).sort().join(',')}`, lng, lat, items: g.items })
+            spots.push({
+              key: `g:${g.items
+                .map((p) => p.id)
+                .sort()
+                .join(',')}`,
+              lng,
+              lat,
+              items: g.items,
+            })
           }
         }
       }
@@ -218,11 +248,17 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
               e.stopPropagation()
               const b = boundsOf(items.map((q) => ({ lat: q.lat, lng: q.lng, t: 0, acc: 0 })))
               if (!b) return
-              map.fitBounds([[b.minLng, b.minLat], [b.maxLng, b.maxLat]], {
-                padding: { top: 140, bottom: 240, left: 60, right: 60 },
-                maxZoom: GROUP_BELOW_ZOOM + 1,
-                duration: 600,
-              })
+              map.fitBounds(
+                [
+                  [b.minLng, b.minLat],
+                  [b.maxLng, b.maxLat],
+                ],
+                {
+                  padding: { top: 140, bottom: 240, left: 60, right: 60 },
+                  maxZoom: GROUP_BELOW_ZOOM + 1,
+                  duration: 600,
+                },
+              )
             })
             marker = new Marker({ element: node, anchor: 'center' }).setLngLat([spot.lng, spot.lat]).addTo(map)
           } else if (!showPolaroids) {
@@ -254,7 +290,10 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
         const node = marker.getElement()
         node.style.zIndex = String(spot.items.length > 1 ? 1000 + i : i + 1)
         node.style.setProperty('--c', dominantColor(spot.items))
-        node.classList.toggle('pending', spot.items.some((q) => q.pending))
+        node.classList.toggle(
+          'pending',
+          spot.items.some((q) => q.pending),
+        )
         const img = node.querySelector('img') as HTMLImageElement | null
         if (img && img.getAttribute('src') !== p.imageUrl) img.src = p.imageUrl
         const cap = node.querySelector('.polaroid-caption')
@@ -334,10 +373,18 @@ export default function MapView({ segments, members, polaroids, meId, myFix, tra
   return (
     <>
       <div ref={el} className="map" />
-      <div className={`map-loading ${ready ? 'done' : ''}`} aria-hidden={ready}>
-        <Walker variant="dotted" color="var(--leaf)" size={44} walking />
-        <span>Loading map…</span>
-      </div>
+      {noMap ? (
+        <div className="map-loading no-map">
+          <Walker variant="dotted" color="var(--ink)" size={44} looking />
+          <span>This browser can't show the map</span>
+          <small>Maps need WebGL. Try turning on hardware acceleration in your browser settings, or use another browser. Everything else still works.</small>
+        </div>
+      ) : (
+        <div className={`map-loading ${ready ? 'done' : ''}`} aria-hidden={ready}>
+          <Walker variant="dotted" color="var(--leaf)" size={44} walking />
+          <span>Loading map…</span>
+        </div>
+      )}
     </>
   )
 }

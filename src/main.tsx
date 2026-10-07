@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './styles.css'
 import App from './App.tsx'
+import ErrorBoundary from './components/ErrorBoundary'
 import { startAppUpdates } from './lib/appUpdate'
 
 // Android keyboards (Gboard on Pixel) don't close when you press Enter/Done in
@@ -19,6 +20,8 @@ startAppUpdates()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

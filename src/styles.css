@@ -638,3 +638,6 @@ textarea.field { resize: none; line-height: 1.4; }
   background: var(--tex-paper), var(--card); border: var(--rule); border-radius: var(--radius);
 }
 .trip:has(.bottombar.compact):has(.details-bubble) .map-walker { bottom: calc(var(--bar-h, 70px) + 18px + var(--det-h, 0px) + var(--sab)); }
+
+.map-loading.no-map { pointer-events: auto; padding: 0 32px; text-align: center; }
+.map-loading.no-map small { max-width: 320px; text-transform: none; letter-spacing: 0; font-weight: 500; font-stretch: 100%; line-height: 1.45; color: var(--ink-2); }
